@@ -1,5 +1,6 @@
 # ADMIN CONFIG REQUIRED:
-# Configure the repository secrets documented in the deployment README and create/protect the release branch.
+# Configure REGISTRY_* and KUBERNETES_* repository secrets. Before the first
+# release, create the verdantflare-hub Deployment in the verdantflare namespace.
 name: build
 
 on:
@@ -19,9 +20,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    name: Build html and image
+  build-and-push:
+    name: Build and push Hub image
     runs-on: ubuntu-latest
+    outputs:
+      image_name: ${{ steps.image.outputs.image_name }}
 
     steps:
       - name: Checkout code
@@ -52,13 +55,9 @@ jobs:
         env:
           REGISTRY_ENDPOINT: ${{ secrets.REGISTRY_ENDPOINT_ALIYUN }}
         run: |
+          set -eu
           registry_endpoint="${REGISTRY_ENDPOINT%/}"
-
-          if [ -z "$registry_endpoint" ]; then
-            echo "REGISTRY_ENDPOINT_ALIYUN is required" >&2
-            exit 1
-          fi
-
+          test -n "$registry_endpoint"
           echo "registry_endpoint=$registry_endpoint" >> "$GITHUB_OUTPUT"
           echo "image_namespace=$registry_endpoint/wod" >> "$GITHUB_OUTPUT"
           echo "image_name=$registry_endpoint/wod/verdantflare" >> "$GITHUB_OUTPUT"
@@ -70,14 +69,15 @@ jobs:
           username: ${{ secrets.REGISTRY_USER_ALIYUN }}
           password: ${{ secrets.REGISTRY_PASSWORD_ALIYUN }}
 
-      - name: Build image
-        uses: docker/build-push-action@v5
+      - name: Build and push Hub image
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./docker/Dockerfile
           platforms: linux/amd64
           push: true
           provenance: false
+          sbom: false
           tags: |
             ${{ steps.image.outputs.image_name }}:${{ env.VERSION }}
             ${{ steps.image.outputs.image_name }}:${{ env.VERSION }}-${{ github.sha }}
@@ -88,12 +88,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Image push success
-        run: echo "${{ steps.image.outputs.image_name }}:${{ env.VERSION }} built and pushed successfully!"
+      - name: Image build success
+        run: |
+          echo "${{ steps.image.outputs.image_name }}:${VERSION} built and pushed."
+          echo "${{ steps.image.outputs.image_name }}:${VERSION}-${GITHUB_SHA} built and pushed."
 
   deploy:
     name: Deploy Hub to Kubernetes
-    needs: build
+    needs: build-and-push
     if: github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
 
@@ -132,8 +134,12 @@ jobs:
           kubectl config use-context verdantflare
 
       - name: Update Hub deployment
+        env:
+          IMAGE_NAME: ${{ needs.build-and-push.outputs.image_name }}
         run: |
-          image="registry.cn-qingdao.aliyuncs.com/wod/verdantflare:${VERSION}-${GITHUB_SHA}"
+          set -eu
+          image="$IMAGE_NAME:${VERSION}-${GITHUB_SHA}"
           kubectl set image deployment/verdantflare-hub verdantflare-hub="$image"
           kubectl rollout status deployment/verdantflare-hub --timeout=5m
-          kubectl get deployment/verdantflare-hub -o jsonpath='{.spec.template.spec.containers[?(@.name=="verdantflare-hub")].image}{"\n"}'
+          kubectl get deployment/verdantflare-hub \
+            -o jsonpath='{.spec.template.spec.containers[?(@.name=="verdantflare-hub")].image}{"\n"}'

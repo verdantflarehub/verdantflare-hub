@@ -24,6 +24,16 @@ const filteredApps = computed(() => {
     return categoryMatch && keywordMatch;
   });
 });
+const manifest = computed(() => {
+  if (!selectedApp.value) return null;
+  const video = selectedApp.value.category.includes("视频") || selectedApp.value.id === "face-lip";
+  return {
+    runtime: video ? "Station Runtime ≥ 0.2 · CUDA 12.4" : "Station Runtime ≥ 0.2",
+    package: `registry.verdantflarehub.com/apps/${selectedApp.value.id}:${selectedApp.value.version}`,
+    models: video ? ["SD2 Video Runtime", "VF Artifact Adapter"] : ["Workflow Runtime", "VF Artifact Adapter"],
+    capabilities: video ? ["文生视频", "参考图输入", "任务状态", "结果登记"] : ["工作区启动", "任务状态", "结果预览", "Artifact 登记"],
+  };
+});
 
 const startExperience = (app) => {
   sessionStorage.setItem("vf_selected_experience_app", app.id);
@@ -81,6 +91,20 @@ onMounted(loadApps);
       </aside>
     </div>
 
+    <section class="content-panel market-manifest-panel">
+      <div class="section-heading"><div><h2>安装与 Manifest</h2><p>应用会安装到 Studio 当前连接的 Station，而不是运行 Studio App 的 Windows PC。</p></div><StatusBadge label="可安装" /></div>
+      <div class="market-manifest-grid">
+        <dl>
+          <div><dt>安装目标</dt><dd>当前 Station</dd></div>
+          <div><dt>运行环境</dt><dd>{{ manifest.runtime }}</dd></div>
+          <div><dt>应用包</dt><dd><code>{{ manifest.package }}</code></dd></div>
+          <div><dt>健康检查</dt><dd>Dashboard + MCP tools/list</dd></div>
+        </dl>
+        <div><span>模型与依赖</span><ul><li v-for="item in manifest.models" :key="item">{{ item }}</li></ul></div>
+        <div><span>能力发现</span><div class="manifest-tags"><i v-for="item in manifest.capabilities" :key="item">{{ item }}</i></div></div>
+      </div>
+    </section>
+
     <section class="content-panel version-panel">
       <div class="section-heading"><div><h2>版本记录</h2><p>当前组织只看到已授权的发布通道。</p></div></div>
       <div class="release-line"><span class="release-dot" /><strong>{{ selectedApp.version }}</strong><span>{{ selectedApp.channel }}</span><span>2026-07-15</span><StatusBadge label="已发布" /></div>
@@ -95,14 +119,8 @@ onMounted(loadApps);
 
   <div v-else class="page market-page">
     <header class="page-header">
-      <div><span class="page-overline">APP MARKET</span><h1>应用市场</h1><p>发现适合团队的已授权应用，查看版本、资源要求与在线体验入口。</p></div>
-      <button class="button primary" @click="navigate('/experience')"><AppIcon name="spark" :size="17" />进入体验中心</button>
+      <div><h1>应用市场</h1><p>发现可用应用，确认权益与 Station 兼容性。</p></div>
     </header>
-
-    <section class="featured-app">
-      <div class="featured-copy"><span>本周推荐</span><h2>Wan Video Studio</h2><p>把脚本、分镜和参考动作快速转化为可测试的视频片段。Preview 版本现已向 {{ organization.name }} 开放。</p><button @click="navigate('/market/apps/wan-video')">查看应用详情<AppIcon name="arrow" :size="16" /></button></div>
-      <div class="featured-visual" aria-hidden="true"><div class="film-frame frame-one"><span /></div><div class="film-frame frame-two"><span /></div><div class="timeline-track"><i /><i /><i /><i /></div><div class="play-orb"><AppIcon name="video" :size="26" /></div></div>
-    </section>
 
     <div class="market-tools">
       <label class="search-field"><AppIcon name="search" :size="18" /><input v-model="search" type="search" placeholder="搜索应用、分类或能力" /></label>
@@ -111,13 +129,38 @@ onMounted(loadApps);
       </div>
     </div>
 
-    <div class="market-result-line"><strong>{{ filteredApps.length }} 个可用应用</strong><span>权益版本 v{{ organization.entitlementVersion }}</span></div>
-    <section class="app-grid">
-      <article v-for="app in filteredApps" :key="app.id" class="app-card" role="button" tabindex="0" @click="navigate(`/market/apps/${app.id}`)" @keydown.enter="navigate(`/market/apps/${app.id}`)" @keydown.space.prevent="navigate(`/market/apps/${app.id}`)">
-        <div class="app-card-top"><span class="app-card-icon" :class="app.tone"><AppIcon :name="app.icon" :size="25" /></span><StatusBadge :label="app.status" /></div>
-        <div><span class="app-category">{{ app.category }}</span><h2>{{ app.name }}</h2><p>{{ app.summary }}</p></div>
-        <footer><span>{{ app.channel }} · v{{ app.version }}</span><AppIcon name="arrow" :size="17" /></footer>
-      </article>
+    <section class="market-showcase">
+      <div class="market-feature-image">
+        <img src="/media/hub-feature-film-director-v1.png" alt="电影拍摄现场中的创作团队" />
+        <div class="market-feature-copy">
+          <h2>影像内容理解助手</h2>
+          <p>快速理解视频内容，生成结构化信息，助力素材整理、内容分析与创意发掘。</p>
+          <div><StatusBadge label="已授权" /><span><AppIcon name="models" :size="15" />Station 2.4+</span><span><AppIcon name="usage" :size="15" />GPU 16GB+</span></div>
+          <button class="button secondary" @click="navigate('/market/apps/wan-video')">查看详情</button>
+          <button class="button primary" @click="startExperience({ id: 'wan-video' })">立即体验</button>
+        </div>
+      </div>
+      <aside class="market-feature-detail">
+        <div class="featured-title"><span class="app-card-icon mint"><AppIcon name="video" :size="26" /></span><div><h2>影像内容理解助手</h2><p>让每一帧内容，都被看见更多可能。</p></div><StatusBadge label="已授权" /></div>
+        <p>支持对视频内容进行多模态理解，自动识别人、场景、动作与语义，生成结构化结果。</p>
+        <dl><div><dt>权益状态</dt><dd>已授权</dd></div><div><dt>兼容 Station</dt><dd>Station 2.4+</dd></div><div><dt>运行需求</dt><dd>GPU 16GB+</dd></div></dl>
+        <div class="studio-handoff"><AppIcon name="organization" :size="18" /><span><strong>安装与运行由 Studio 管理</strong><small>应用会发送到 Studio 当前连接的 Station。</small></span></div>
+        <button class="button primary full" @click="$emit('toast', '正在打开 Studio，并定位到当前 Station')"><AppIcon name="external" :size="17" />在 Studio 中打开</button>
+      </aside>
+    </section>
+
+    <section class="market-catalog">
+      <div class="section-heading"><div><h2>精选应用</h2><p>{{ filteredApps.length }} 个应用 · 权益版本 v{{ organization.entitlementVersion }}</p></div><span class="market-sort">综合排序<AppIcon name="chevron" :size="14" /></span></div>
+      <div class="market-app-list">
+        <button v-for="app in filteredApps" :key="app.id" @click="navigate(`/market/apps/${app.id}`)">
+          <span class="app-card-icon" :class="app.tone"><AppIcon :name="app.icon" :size="22" /></span>
+          <span class="market-app-copy"><strong>{{ app.name }}</strong><small>{{ app.summary }}</small></span>
+          <StatusBadge :label="app.status" />
+          <span class="market-compat"><AppIcon name="models" :size="15" />Station 2.4+</span>
+          <span class="market-compat"><AppIcon name="usage" :size="15" />{{ app.gpu }}</span>
+          <AppIcon name="chevron" :size="17" />
+        </button>
+      </div>
     </section>
     <div v-if="filteredApps.length === 0" class="empty-state"><AppIcon name="search" :size="28" /><strong>没有匹配的应用</strong><span>换个关键词或清除分类筛选。</span></div>
   </div>

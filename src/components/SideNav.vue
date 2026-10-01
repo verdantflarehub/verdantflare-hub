@@ -14,16 +14,16 @@ const emit = defineEmits(["close"]);
 const groups = [
   {
     items: [
-      { label: "总览", icon: "overview", href: "/", exact: true },
+      { label: "概览", icon: "overview", href: "/", exact: true },
       { label: "模型市场", icon: "models", href: "/api/models" },
       { label: "应用市场", icon: "market", href: "/market" },
-      { label: "体验中心", icon: "experience", href: "/experience" },
+      { label: "在线体验", icon: "experience", href: "/experience" },
     ],
   },
   {
     label: "API CENTER",
     items: [
-      { label: "API Keys", icon: "key", href: "/api/keys" },
+      { label: "API 密钥", icon: "key", href: "/api/keys" },
       { label: "Playground", icon: "playground", href: "/api/playground" },
       { label: "任务与日志", icon: "tasks", href: "/api/tasks" },
       { label: "用量", icon: "usage", href: "/api/usage" },
@@ -58,7 +58,7 @@ const select = (href) => {
   <aside class="sidebar" :class="{ open }">
     <div class="brand-block" @click="select('/')">
       <img src="/brand/verdantflare-logo.svg" alt="" />
-      <div><strong>VerdantFlare</strong><span>HUB</span></div>
+      <div><strong>VerdantFlare</strong><span>Hub</span></div>
     </div>
 
     <nav class="side-navigation" aria-label="主导航">

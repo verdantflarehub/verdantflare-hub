@@ -5,6 +5,7 @@ import AppIcon from "../components/AppIcon.vue";
 import MetricCard from "../components/MetricCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { experienceSessions as seedSessions } from "../data/mock";
+import { navigate } from "../router";
 
 const props = defineProps({ organization: Object, query: { type: String, default: "" } });
 const emit = defineEmits(["toast"]);
@@ -87,7 +88,7 @@ onMounted(loadApps);
       <div class="data-table session-table">
         <div class="table-head"><span>Session / 应用</span><span>区域</span><span>启动时间</span><span>时长 / 清理</span><span>用量</span><span>状态</span><span /></div>
         <div v-for="session in sessions" :key="session.id" class="table-row">
-          <span><strong>{{ session.app }}</strong><small>{{ session.id }}</small></span><span>{{ session.region }}</span><span>{{ session.startedAt }}</span><span>{{ session.remaining }}</span><span>{{ session.usage }}</span><StatusBadge :label="session.status" /><button class="row-action" :aria-label="`管理 ${session.app} 会话`">•••</button>
+          <span><strong>{{ session.app }}</strong><small>{{ session.id }}</small></span><span>{{ session.region }}</span><span>{{ session.startedAt }}</span><span>{{ session.remaining }}</span><span>{{ session.usage }}</span><StatusBadge :label="session.status" /><button class="row-action" :aria-label="`查看 ${session.app} 会话`" @click="navigate(`/experience/sessions/${session.id}`)"><AppIcon name="arrow" :size="15" /></button>
         </div>
       </div>
     </section>

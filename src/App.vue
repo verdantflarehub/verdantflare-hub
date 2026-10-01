@@ -9,8 +9,11 @@ import ApiView from "./views/ApiView.vue";
 import ExperienceView from "./views/ExperienceView.vue";
 import MarketView from "./views/MarketView.vue";
 import NotFoundView from "./views/NotFoundView.vue";
+import OrganizationDetailView from "./views/OrganizationDetailView.vue";
 import OperationsView from "./views/OperationsView.vue";
 import OverviewView from "./views/OverviewView.vue";
+import ReleaseDetailView from "./views/ReleaseDetailView.vue";
+import SessionDetailView from "./views/SessionDetailView.vue";
 import SettingsView from "./views/SettingsView.vue";
 
 const context = ref(null);
@@ -33,9 +36,12 @@ const route = computed(() => {
   const path = currentPath.value;
   if (path === "/") return { component: OverviewView, area: "overview" };
   if (path === "/market" || path.startsWith("/market/apps/")) return { component: MarketView, area: "market" };
-  if (path === "/experience" || path.startsWith("/experience/sessions/")) return { component: ExperienceView, area: "experience" };
+  if (path.startsWith("/experience/sessions/")) return { component: SessionDetailView, area: "experience" };
+  if (path === "/experience") return { component: ExperienceView, area: "experience" };
   if (path.startsWith("/api/")) return { component: ApiView, area: "api" };
   if (path.startsWith("/settings/")) return { component: SettingsView, area: "settings" };
+  if (path.startsWith("/ops/apps/") && path.endsWith("/releases") && isInternal.value) return { component: ReleaseDetailView, area: "operations" };
+  if (path.startsWith("/ops/organizations/") && isInternal.value) return { component: OrganizationDetailView, area: "operations" };
   if (path.startsWith("/ops/") && isInternal.value) return { component: OperationsView, area: "operations" };
   return { component: NotFoundView, area: "not-found" };
 });

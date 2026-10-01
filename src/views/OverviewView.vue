@@ -1,79 +1,74 @@
 <script setup>
 import AppIcon from "../components/AppIcon.vue";
-import MetricCard from "../components/MetricCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { navigate } from "../router";
 
 defineProps({ organization: { type: Object, required: true }, internal: Boolean });
 
-const abilities = [
-  { title: "应用市场", description: "浏览已授权应用、版本与在线体验入口", icon: "market", tone: "mint", href: "/market", action: "进入应用市场" },
-  { title: "体验中心", description: "1 个 Session 运行中，本月已使用 142 点", icon: "experience", tone: "blue", href: "/experience", action: "继续体验" },
-  { title: "模型市场", description: "浏览已授权模型、价格、能力与调用方式", icon: "models", tone: "coral", href: "/api/models", action: "进入模型市场" },
+const experiences = [
+  { title: "通用对话助手", meta: "多轮对话体验", time: "今天 14:26", status: "已完成" },
+  { title: "图像生成应用", meta: "文生图体验", time: "今天 11:03", status: "已完成" },
+  { title: "视频理解助手", meta: "视频内容问答", time: "今天 09:18", status: "运行中" },
 ];
 
 const tasks = [
-  { title: "ComfyUI Studio 体验会话", meta: "exp_2F7A19 · 华东", time: "还剩 42 分钟", status: "运行中" },
-  { title: "VerdantFlare SD2 视频任务", meta: "task_9D2A · 1080p", time: "已运行 3 分钟", status: "运行中" },
-  { title: "API 月度预算", meta: "本月已使用 68%", time: "剩余 12,840 点", status: "正常" },
+  { title: "文本生成请求", meta: "VF-Chat", time: "今天 14:12", status: "已完成" },
+  { title: "图像生成请求", meta: "VF-Image", time: "今天 13:47", status: "已完成" },
+  { title: "视频分析请求", meta: "VF-Video", time: "今天 12:21", status: "处理中" },
 ];
 </script>
 
 <template>
   <div class="page overview-page">
-    <section class="welcome-band">
+    <header class="overview-hero">
       <div>
-        <span class="page-overline">CENTER OVERVIEW</span>
-        <h1>下午好，准备开始创作了吗？</h1>
-        <p>{{ organization.name }} 的应用、体验与 API 使用情况都在这里。</p>
+        <h1>工作台</h1>
+        <p>从模型与应用发现，进入在线体验或 API 调用。</p>
+        <div class="welcome-actions">
+          <button class="button primary" @click="navigate('/market')"><AppIcon name="market" :size="18" />浏览应用市场<AppIcon name="arrow" :size="16" /></button>
+          <button class="button secondary" @click="navigate('/api/playground')"><AppIcon name="spark" :size="18" />打开 Playground</button>
+        </div>
       </div>
-      <div class="welcome-actions">
-        <button class="button secondary" @click="navigate('/api/keys')"><AppIcon name="key" :size="17" />创建 API Key</button>
-        <button class="button primary" @click="navigate('/experience')"><AppIcon name="spark" :size="17" />开始体验</button>
+      <div class="hero-landscape" aria-hidden="true">
+        <i /><i /><i />
+        <span>让优秀的模型与应用<br />创造更大的可能</span>
+      </div>
+    </header>
+
+    <section class="resource-rail">
+      <header><strong>我的资源与用量</strong><button @click="navigate('/api/usage')">查看用量详情<AppIcon name="arrow" :size="15" /></button></header>
+      <div class="resource-items">
+        <div><span class="resource-icon"><AppIcon name="models" :size="20" /></span><span><small>可用模型</small><strong>28</strong></span></div>
+        <div><span class="resource-icon"><AppIcon name="market" :size="20" /></span><span><small>可用应用</small><strong>22</strong></span></div>
+        <div><span class="resource-icon"><AppIcon name="key" :size="20" /></span><span><small>API 密钥</small><strong>6</strong></span></div>
+        <div><span class="resource-icon"><AppIcon name="usage" :size="20" /></span><span><small>API 余额</small><strong>{{ organization.apiCredits.toLocaleString() }}</strong></span></div>
       </div>
     </section>
 
-    <section class="metric-grid">
-      <MetricCard label="可用应用" value="22" detail="含 4 个 Preview" icon="market" tone="mint" />
-      <MetricCard label="体验额度" :value="`${organization.experienceCredits} 点`" detail="本月已使用 142 点" icon="experience" tone="blue" />
-      <MetricCard label="API 余额" :value="organization.apiCredits.toLocaleString()" detail="本月预算剩余 32%" icon="usage" tone="coral" />
-      <MetricCard label="运行中任务" value="2" detail="无失败或异常" icon="tasks" tone="violet" />
+    <section class="dashboard-feature">
+      <div class="feature-mark"><img src="/brand/verdantflare-logo.svg" alt="" /></div>
+      <div class="feature-message"><small>精选应用</small><h2>影像内容理解助手</h2><p>基于多模态模型的影视内容分析与结构化处理，支持视频、图像与字幕的联合理解。</p><button class="button primary" @click="navigate('/market/apps/wan-video')">立即体验<AppIcon name="arrow" :size="16" /></button></div>
+      <div class="feature-art" aria-hidden="true"><span /><i /><i /></div>
+      <ul><li><AppIcon name="video" :size="16" />多模态内容理解</li><li><AppIcon name="spark" :size="16" />关键片段智能标注</li><li><AppIcon name="tasks" :size="16" />支持批量处理</li><li><AppIcon name="external" :size="16" />可通过 API 集成</li></ul>
     </section>
 
-    <div class="overview-columns">
+    <div class="overview-lists">
       <section>
-        <div class="section-heading"><div><h2>可用能力</h2><p>根据当前组织的角色与权益动态显示。</p></div></div>
-        <div class="ability-list">
-          <button v-for="ability in abilities" :key="ability.title" class="ability-row" @click="navigate(ability.href)">
-            <span class="ability-icon" :class="ability.tone"><AppIcon :name="ability.icon" :size="22" /></span>
-            <span class="ability-copy"><strong>{{ ability.title }}</strong><small>{{ ability.description }}</small></span>
-            <span class="ability-action">{{ ability.action }}<AppIcon name="arrow" :size="15" /></span>
+        <div class="section-heading"><div><h2>最近体验</h2></div><button class="text-button" @click="navigate('/experience')">查看全部<AppIcon name="arrow" :size="14" /></button></div>
+        <div class="dashboard-list">
+          <button v-for="item in experiences" :key="item.title" @click="navigate('/experience')">
+            <span class="list-emblem"><AppIcon name="experience" :size="17" /></span><span class="list-copy"><strong>{{ item.title }}</strong><small>{{ item.meta }}</small></span><time>{{ item.time }}</time><StatusBadge :label="item.status" />
           </button>
         </div>
       </section>
-
-      <section class="activity-panel">
-        <div class="section-heading"><div><h2>用量趋势</h2><p>过去 7 天 · API 与体验合计</p></div><button class="text-button" @click="navigate('/api/usage')">查看详情</button></div>
-        <div class="usage-chart" aria-label="过去七天用量柱状图">
-          <div class="chart-scale"><span>600</span><span>400</span><span>200</span><span>0</span></div>
-          <div class="chart-bars">
-            <div v-for="(height, index) in [36, 52, 43, 72, 58, 81, 68]" :key="index" class="bar-column">
-              <i :style="{ height: `${height}%` }"><span /></i><small>{{ ['周五', '周六', '周日', '周一', '周二', '周三', '今天'][index] }}</small>
-            </div>
-          </div>
+      <section>
+        <div class="section-heading"><div><h2>最近 API 任务</h2></div><button class="text-button" @click="navigate('/api/tasks')">查看全部<AppIcon name="arrow" :size="14" /></button></div>
+        <div class="dashboard-list">
+          <button v-for="task in tasks" :key="task.title" @click="navigate('/api/tasks')">
+            <span class="list-emblem"><AppIcon name="tasks" :size="17" /></span><span class="list-copy"><strong>{{ task.title }}</strong><small>{{ task.meta }}</small></span><time>{{ task.time }}</time><StatusBadge :label="task.status" />
+          </button>
         </div>
-        <div class="chart-legend"><span><i class="mint" />API 用量 1,846 点</span><span><i class="blue" />体验用量 142 点</span></div>
       </section>
     </div>
-
-    <section class="recent-section">
-      <div class="section-heading"><div><h2>正在进行</h2><p>Session、任务与额度状态。</p></div><button class="text-button" @click="navigate('/api/tasks')">全部任务</button></div>
-      <div class="data-table recent-table">
-        <div class="table-head"><span>事项</span><span>标识 / 区域</span><span>进度</span><span>状态</span></div>
-        <div v-for="task in tasks" :key="task.title" class="table-row">
-          <strong>{{ task.title }}</strong><span>{{ task.meta }}</span><span>{{ task.time }}</span><StatusBadge :label="task.status" />
-        </div>
-      </div>
-    </section>
   </div>
 </template>

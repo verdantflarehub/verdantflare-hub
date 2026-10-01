@@ -24,6 +24,10 @@ const chooseOrganization = (org) => {
   <header class="topbar">
     <button class="mobile-menu" aria-label="打开导航" @click="$emit('menu')"><AppIcon name="menu" /></button>
 
+    <div class="topbar-spacer" />
+
+    <div class="service-health"><i />服务正常</div>
+
     <div class="org-switcher-wrap">
       <button class="org-switcher" @click="orgOpen = !orgOpen">
         <span class="org-avatar">{{ activeOrganization.shortName }}</span>
@@ -43,12 +47,6 @@ const chooseOrganization = (org) => {
           <AppIcon v-if="org.organizationId === activeOrganization.organizationId" name="check" :size="16" />
         </button>
       </div>
-    </div>
-
-    <div class="topbar-spacer" />
-    <div class="quota-summary">
-      <span><i class="quota-dot mint" />体验额度 <strong>{{ activeOrganization.experienceCredits }}</strong></span>
-      <span><i class="quota-dot amber" />API 点数 <strong>{{ activeOrganization.apiCredits.toLocaleString() }}</strong></span>
     </div>
 
     <div class="topbar-action-wrap">

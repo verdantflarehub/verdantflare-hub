@@ -69,6 +69,9 @@ jobs:
           username: ${{ secrets.REGISTRY_USER_ALIYUN }}
           password: ${{ secrets.REGISTRY_PASSWORD_ALIYUN }}
 
+      - name: Refuse an existing image tag
+        run: '! docker buildx imagetools inspect "${{ steps.image.outputs.image_name }}:${{ env.VERSION }}" >/dev/null 2>&1'
+
       - name: Build and push Hub image
         uses: docker/build-push-action@v6
         with:
@@ -78,9 +81,7 @@ jobs:
           push: true
           provenance: false
           sbom: false
-          tags: |
-            ${{ steps.image.outputs.image_name }}:${{ env.VERSION }}
-            ${{ steps.image.outputs.image_name }}:${{ env.VERSION }}-${{ github.sha }}
+          tags: ${{ steps.image.outputs.image_name }}:${{ env.VERSION }}
           build-args: |
             AUTHOR=${{ github.repository_owner }}
             VERSION=${{ env.VERSION }}
@@ -91,7 +92,6 @@ jobs:
       - name: Image build success
         run: |
           echo "${{ steps.image.outputs.image_name }}:${VERSION} built and pushed."
-          echo "${{ steps.image.outputs.image_name }}:${VERSION}-${GITHUB_SHA} built and pushed."
 
   deploy:
     name: Deploy Hub to Kubernetes

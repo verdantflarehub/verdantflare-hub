@@ -16,6 +16,9 @@ import ReleaseDetailView from "./views/ReleaseDetailView.vue";
 import SessionDetailView from "./views/SessionDetailView.vue";
 import SettingsView from "./views/SettingsView.vue";
 
+const loginUrl = import.meta.env.VITE_LOGIN_URL || "https://login.verdantflarehub.com/sign-in";
+const logoutUrl = new URL("/logout", loginUrl).toString();
+
 const context = ref(null);
 const loading = ref(true);
 const error = ref("");
@@ -92,7 +95,7 @@ onMounted(loadContext);
     <div class="state-detail"><span>服务状态</span><strong>{{ error }}</strong></div>
     <div class="state-actions">
       <button class="button primary" @click="loadContext">重新尝试</button>
-      <a class="button secondary" href="https://login.verdantflarehub.com/logout">退出登录</a>
+      <a class="button secondary" :href="logoutUrl">退出登录</a>
     </div>
   </div>
 

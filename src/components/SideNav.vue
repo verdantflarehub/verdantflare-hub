@@ -5,7 +5,8 @@ import { currentPath, isPathActive, navigate } from "../router";
 const wwwUrl = import.meta.env.VITE_WWW_URL || "https://www.verdantflarehub.com";
 
 defineProps({
-  internal: { type: Boolean, default: false },
+  canManageApps: { type: Boolean, default: false },
+  canManageOrganizations: { type: Boolean, default: false },
   open: { type: Boolean, default: false },
 });
 
@@ -76,10 +77,10 @@ const select = (href) => {
         </button>
       </section>
 
-      <section v-if="internal">
+      <section v-if="canManageApps || canManageOrganizations">
         <span class="nav-section-label">{{ opsGroup.label }}</span>
         <button
-          v-for="item in opsGroup.items"
+          v-for="item in opsGroup.items.filter((entry) => entry.href === '/ops/apps' ? canManageApps : canManageOrganizations)"
           :key="item.href"
           :class="{ active: isPathActive(item.href) }"
           @click="select(item.href)"

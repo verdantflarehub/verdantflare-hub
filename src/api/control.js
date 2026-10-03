@@ -6,12 +6,10 @@ import {
   experienceSessions,
   members,
   models,
-  organizations,
-  releases,
 } from "../data/mock";
 
 const controlBase = (import.meta.env.VITE_CONTROL_API_BASE || "/api/control").replace(/\/$/, "");
-const useMock = import.meta.env.VITE_USE_MOCK !== "false";
+const useMock = import.meta.env.DEV && import.meta.env.VITE_USE_MOCK !== "false";
 
 const request = async (path, options = {}) => {
   const response = await fetch(`${controlBase}${path}`, {
@@ -26,8 +24,9 @@ const request = async (path, options = {}) => {
     return null;
   }
 
-  if (!response.ok) throw new Error(`Control API ${response.status}`);
-  return response.status === 204 ? null : response.json();
+  const body = response.status === 204 ? null : await response.json().catch(() => null);
+  if (!response.ok) throw new Error(body?.error?.message || `Control API ${response.status}`);
+  return body;
 };
 
 export const getCenterContext = async () => {
@@ -73,6 +72,12 @@ export const controlApi = {
   listMembers: () => (useMock ? Promise.resolve(structuredClone(members)) : request("/settings/members")),
   inviteMember: (payload) => (useMock ? Promise.resolve(payload) : request("/settings/members", { method: "POST", body: JSON.stringify(payload) })),
   getBilling: () => (useMock ? Promise.resolve({ plan: "Enterprise", apiBudget: 41000, apiUsed: 28160 }) : request("/settings/billing")),
-  listReleases: () => (useMock ? Promise.resolve(structuredClone(releases)) : request("/ops/releases")),
-  listOperationsOrganizations: () => (useMock ? Promise.resolve(structuredClone(organizations)) : request("/ops/organizations")),
+  listReleases: () => request("/ops/releases"),
+  createManagedApp: (payload) => request("/ops/apps", { method: "POST", body: JSON.stringify(payload) }),
+  getManagedApp: (id) => request(`/ops/apps/${encodeURIComponent(id)}`),
+  updateManagedApp: (id, payload) => request(`/ops/apps/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  listOperationsOrganizations: () => request("/ops/organizations"),
+  createManagedOrganization: (payload) => request("/ops/organizations", { method: "POST", body: JSON.stringify(payload) }),
+  getManagedOrganization: (id) => request(`/ops/organizations/${encodeURIComponent(id)}`),
+  updateManagedOrganization: (id, payload) => request(`/ops/organizations/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload) }),
 };

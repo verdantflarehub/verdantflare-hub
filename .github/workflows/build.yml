@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 env:
-  VERSION: ${{ github.ref == 'refs/heads/dev' && 'hub-v1.0.0-dev.3' || 'hub-v1.1.1' }}
+  VERSION: ${{ github.ref == 'refs/heads/dev' && 'hub-v1.0.0-dev.3' || 'hub-v1.1.2' }}
 
 concurrency:
   group: verdantflare-hub-release
@@ -131,13 +131,12 @@ jobs:
             --cluster=verdantflare \
             --user=github-actions \
             --namespace=verdantflare
-          kubectl config use-context verdantflare
 
       - name: Update Hub deployment
         run: |
           set -eu
           image="registry.cn-qingdao.aliyuncs.com/wod/verdantflare:${VERSION}"
-          kubectl set image deployment/verdantflare-hub verdantflare-hub="$image"
-          kubectl rollout status deployment/verdantflare-hub --timeout=5m
-          kubectl get deployment/verdantflare-hub \
+          kubectl --context verdantflare -n verdantflare set image deployment/verdantflare-hub verdantflare-hub="$image"
+          kubectl --context verdantflare -n verdantflare rollout status deployment/verdantflare-hub --timeout=5m
+          kubectl --context verdantflare -n verdantflare get deployment/verdantflare-hub \
             -o jsonpath='{.spec.template.spec.containers[?(@.name=="verdantflare-hub")].image}{"\n"}'

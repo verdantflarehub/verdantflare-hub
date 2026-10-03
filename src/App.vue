@@ -31,9 +31,8 @@ const activeOrganization = computed(() => {
   return context.value.organizations.find((org) => org.organizationId === context.value.activeOrganizationId) || context.value.organizations[0];
 });
 
-const isInternal = computed(() =>
-  activeOrganization.value?.roles.some((role) => ["app_ops_admin", "customer_success_admin"].includes(role)),
-);
+const canManageApps = computed(() => activeOrganization.value?.roles?.includes("app_ops_admin") || false);
+const canManageOrganizations = computed(() => activeOrganization.value?.roles?.includes("customer_success_admin") || false);
 
 const route = computed(() => {
   const path = currentPath.value;
@@ -43,9 +42,10 @@ const route = computed(() => {
   if (path === "/experience") return { component: ExperienceView, area: "experience" };
   if (path.startsWith("/api/")) return { component: ApiView, area: "api" };
   if (path.startsWith("/settings/")) return { component: SettingsView, area: "settings" };
-  if (path.startsWith("/ops/apps/") && path.endsWith("/releases") && isInternal.value) return { component: ReleaseDetailView, area: "operations" };
-  if (path.startsWith("/ops/organizations/") && isInternal.value) return { component: OrganizationDetailView, area: "operations" };
-  if (path.startsWith("/ops/") && isInternal.value) return { component: OperationsView, area: "operations" };
+  if (path.startsWith("/ops/apps/") && path.endsWith("/releases") && canManageApps.value) return { component: ReleaseDetailView, area: "operations" };
+  if (path.startsWith("/ops/organizations/") && canManageOrganizations.value) return { component: OrganizationDetailView, area: "operations" };
+  if (path === "/ops/apps" && canManageApps.value) return { component: OperationsView, area: "operations" };
+  if (path === "/ops/organizations" && canManageOrganizations.value) return { component: OperationsView, area: "operations" };
   return { component: NotFoundView, area: "not-found" };
 });
 
@@ -59,6 +59,14 @@ const loadContext = async () => {
     error.value = cause instanceof Error ? cause.message : "Center Context 加载失败";
   } finally {
     loading.value = context.value === null && !error.value;
+  }
+};
+
+const refreshContext = async () => {
+  try {
+    context.value = await getCenterContext();
+  } catch (cause) {
+    showToast(cause instanceof Error ? cause.message : "组织上下文刷新失败");
   }
 };
 
@@ -101,7 +109,7 @@ onMounted(loadContext);
   </div>
 
   <div v-else class="hub-shell">
-    <SideNav :internal="isInternal" :open="sidebarOpen" @close="sidebarOpen = false" />
+    <SideNav :can-manage-apps="canManageApps" :can-manage-organizations="canManageOrganizations" :open="sidebarOpen" @close="sidebarOpen = false" />
     <TopBar
       :context="context"
       :active-organization="activeOrganization"
@@ -116,8 +124,9 @@ onMounted(loadContext);
           :path="currentPath"
           :query="currentSearch"
           :organization="activeOrganization"
-          :internal="isInternal"
+          :internal="canManageApps || canManageOrganizations"
           @toast="showToast"
+          @context-change="refreshContext"
         />
       </Transition>
     </main>

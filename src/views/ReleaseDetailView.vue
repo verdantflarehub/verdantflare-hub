@@ -1,57 +1,84 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
+import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
 import StatusBadge from "../components/StatusBadge.vue";
-import { apps, releases } from "../data/mock";
 import { navigate } from "../router";
 
 const props = defineProps({ path: String });
 const emit = defineEmits(["toast"]);
 const appId = computed(() => props.path.split("/").filter(Boolean)[2]);
-const app = computed(() => apps.find((item) => item.id === appId.value));
-const release = computed(() => releases.find((item) => item.app === app.value?.name));
-const channel = ref(release.value?.channel || "Candidate");
-const audience = ref(release.value?.audience || "内部");
+const record = ref(null);
+const form = ref(null);
+const loading = ref(false);
+const saving = ref(false);
+const error = ref("");
+const load = async () => {
+  loading.value = true;
+  error.value = "";
+  try {
+    record.value = await controlApi.getManagedApp(appId.value);
+    form.value = { ...record.value.app };
+  } catch (cause) {
+    record.value = null;
+    error.value = cause instanceof Error ? cause.message : "应用加载失败";
+  } finally {
+    loading.value = false;
+  }
+};
+watch(appId, load, { immediate: true });
 
-const saveDraft = () => emit("toast", "发布草稿已在原型中保存");
+const save = async (channel = form.value.channel) => {
+  saving.value = true;
+  error.value = "";
+  try {
+    record.value = await controlApi.updateManagedApp(appId.value, {
+      name: form.value.name,
+      version: form.value.version,
+      category: form.value.category,
+      summary: form.value.summary,
+      gpu: form.value.gpu,
+      duration: form.value.duration,
+      icon: form.value.icon,
+      tone: form.value.tone,
+      channel,
+    });
+    form.value = { ...record.value.app };
+    emit("toast", channel === "Preview" ? "应用已发布到 Preview" : "应用发布资料已保存");
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : "保存失败";
+  } finally {
+    saving.value = false;
+  }
+};
 </script>
 
 <template>
-  <div v-if="app" class="page detail-workspace-page">
+  <div class="page detail-workspace-page">
     <button class="back-button" @click="navigate('/ops/apps')"><AppIcon name="arrow" :size="16" />返回应用发布</button>
-    <section class="detail-command-bar internal-detail">
-      <div class="app-large-icon" :class="app.tone"><AppIcon :name="app.icon" :size="31" /></div>
-      <div class="detail-title-copy"><span class="page-overline internal-overline">APP RELEASE</span><h1>{{ app.name }} · {{ app.version }}</h1><p>检查 Manifest、标准验证、发布通道和客户范围。</p></div>
-      <div class="detail-command-actions"><StatusBadge :label="release?.status || '候选'" /><button class="button secondary" @click="saveDraft">保存草稿</button><button class="button primary" @click="$emit('toast', '发布评审已发起')">提交评审</button></div>
-    </section>
-
-    <section class="release-stage-line" aria-label="发布阶段">
-      <div class="done"><span>1</span><strong>Candidate</strong></div><i /><div class="active"><span>2</span><strong>Manifest & 验证</strong></div><i /><div><span>3</span><strong>Preview</strong></div><i /><div><span>4</span><strong>Stable</strong></div><i /><div><span>5</span><strong>暂停 / 回滚</strong></div>
-    </section>
-
-    <div class="detail-two-column release-detail-grid">
-      <section class="content-panel manifest-panel">
-        <div class="section-heading"><div><h2>AppManifest</h2><p>版本、运行环境、模型和依赖的可审阅摘要。</p></div><code>schema v0.1</code></div>
-        <div class="manifest-fields">
-          <div><span>应用标识</span><strong>{{ app.id }}</strong></div><div><span>应用版本</span><strong>{{ app.version }}</strong></div>
-          <div><span>运行时</span><strong>Station Runtime ≥ 0.2</strong></div><div><span>入口协议</span><strong>MCP + Dashboard</strong></div>
-          <div><span>推荐 GPU</span><strong>{{ app.gpu }}</strong></div><div><span>数据目录</span><strong>/data/apps/{{ app.id }}</strong></div>
-        </div>
-        <div class="manifest-block"><span>模型与依赖</span><ul><li>{{ app.category === '视频生成' ? 'SD2 Video Runtime · locked' : 'Workflow Runtime · locked' }}</li><li>CUDA 12.4 · Driver ≥ 550</li><li>Artifact output contract v0.1</li></ul></div>
+    <p v-if="loading">正在加载应用发布资料…</p>
+    <section v-if="error" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>操作未完成</strong><p>{{ error }}</p></div><button class="button secondary" @click="load">重新加载</button></section>
+    <template v-if="record && form">
+      <section class="detail-command-bar internal-detail">
+        <div class="app-large-icon" :class="record.app.tone"><AppIcon :name="record.app.icon || 'market'" :size="31" /></div>
+        <div class="detail-title-copy"><span class="page-overline internal-overline">APP RELEASE</span><h1>{{ record.app.name }} · {{ record.app.version }}</h1><p>应用 ID：<code>{{ record.app.id }}</code> · 已授权 {{ record.release.audience }}</p></div>
+        <div class="detail-command-actions"><StatusBadge :label="record.release.status" /><button class="button secondary" :disabled="saving" @click="save()">保存更改</button><button class="button primary" :disabled="saving || record.app.channel === 'Preview'" @click="save('Preview')">发布 Preview</button></div>
       </section>
 
-      <aside class="content-panel release-controls">
-        <div class="section-heading"><div><h2>发布范围</h2><p>保存后仍需服务端角色与权益校验。</p></div></div>
-        <label class="form-field"><span>发布通道</span><select v-model="channel"><option>Candidate</option><option>Experimental</option><option>Preview</option><option>Stable</option></select></label>
-        <label class="form-field"><span>客户范围</span><select v-model="audience"><option>内部</option><option>3 个试用组织</option><option>12 个授权组织</option><option>全部符合套餐的组织</option></select></label>
-        <div class="release-warning"><AppIcon name="warning" :size="18" /><span>切换 Stable 前必须完成许可、安全、安装、健康检查、任务和 Artifact 六项验证。</span></div>
-      </aside>
-    </div>
+      <div class="detail-two-column release-detail-grid">
+        <section class="content-panel manifest-panel">
+          <div class="section-heading"><div><h2>应用资料</h2><p>这里保存的目录资料由客户 Market 读取。</p></div></div>
+          <div class="two-column-form"><label class="form-field"><span>应用名称</span><input v-model.trim="form.name" /></label><label class="form-field"><span>版本</span><input v-model.trim="form.version" /></label><label class="form-field"><span>分类</span><input v-model.trim="form.category" /></label><label class="form-field"><span>推荐资源</span><input v-model.trim="form.gpu" /></label><label class="form-field"><span>体验时长说明</span><input v-model.trim="form.duration" /></label></div>
+          <label class="form-field"><span>简介</span><textarea v-model.trim="form.summary" rows="3" /></label>
+        </section>
+        <aside class="content-panel release-controls">
+          <div class="section-heading"><div><h2>发布通道</h2><p>Candidate 与 Paused 不向客户展示。</p></div></div>
+          <label class="form-field"><span>通道</span><select v-model="form.channel"><option>Candidate</option><option>Preview</option><option :disabled="record.release.validation !== '6 / 6'">Stable</option><option>Paused</option></select></label>
+          <div class="release-warning"><AppIcon name="warning" :size="18" /><span>新应用没有 Station 标准验证记录，Stable 需先完成六项验证。客户还需获得组织权益才能看见 Preview 应用。</span></div>
+        </aside>
+      </div>
 
-    <section class="content-panel validation-panel">
-      <div class="section-heading"><div><h2>标准验证</h2><p>同一版本必须在声明的 Station 组合上留下可追踪结果。</p></div><strong>{{ release?.validation || '0 / 6' }}</strong></div>
-      <div class="validation-grid"><div v-for="item in ['许可与来源','镜像与签名','安装与升级','健康检查','最小任务','Artifact 输出']" :key="item"><AppIcon :name="['许可与来源','镜像与签名'].includes(item) ? 'check' : 'warning'" :size="17" /><span><strong>{{ item }}</strong><small>{{ ['许可与来源','镜像与签名'].includes(item) ? '已通过' : '等待验证' }}</small></span></div></div>
-    </section>
+      <section class="content-panel validation-panel"><div class="section-heading"><div><h2>标准验证</h2><p>当前记录仅展示已有验证结果；本页面不会伪造验证通过。</p></div><strong>{{ record.release.validation }}</strong></div></section>
+    </template>
   </div>
-  <div v-else class="page"><button class="back-button" @click="navigate('/ops/apps')"><AppIcon name="arrow" :size="16" />返回应用发布</button><section class="empty-state"><AppIcon name="warning" :size="28" /><strong>找不到应用发布记录</strong><span>{{ appId }} 尚未收录，或当前角色无权查看。</span></section></div>
 </template>

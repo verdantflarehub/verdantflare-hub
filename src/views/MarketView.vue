@@ -6,7 +6,6 @@ import StatusBadge from "../components/StatusBadge.vue";
 import { navigate } from "../router";
 
 const props = defineProps({ path: String, query: { type: String, default: "" }, organization: Object });
-const emit = defineEmits(["toast"]);
 const search = ref("");
 const activeCategory = ref("全部");
 const apps = ref([]);
@@ -24,17 +23,7 @@ const filteredApps = computed(() => {
     return categoryMatch && keywordMatch;
   });
 });
-const manifest = computed(() => {
-  if (!selectedApp.value) return null;
-  const video = selectedApp.value.category.includes("视频") || selectedApp.value.id === "face-lip";
-  return {
-    runtime: video ? "Station Runtime ≥ 0.2 · CUDA 12.4" : "Station Runtime ≥ 0.2",
-    package: `registry.verdantflarehub.com/apps/${selectedApp.value.id}:${selectedApp.value.version}`,
-    models: video ? ["SD2 Video Runtime", "VF Artifact Adapter"] : ["Workflow Runtime", "VF Artifact Adapter"],
-    capabilities: video ? ["文生视频", "参考图输入", "任务状态", "结果登记"] : ["工作区启动", "任务状态", "结果预览", "Artifact 登记"],
-  };
-});
-
+const featuredApp = computed(() => filteredApps.value[0] || null);
 const startExperience = (app) => {
   sessionStorage.setItem("vf_selected_experience_app", app.id);
   navigate(`/experience?app=${encodeURIComponent(app.id)}`);
@@ -67,10 +56,9 @@ onMounted(loadApps);
       <div class="app-detail-copy">
         <div class="detail-meta"><span>{{ selectedApp.category }}</span><span>{{ selectedApp.channel }} · v{{ selectedApp.version }}</span></div>
         <h1>{{ selectedApp.name }}</h1>
-        <p>{{ selectedApp.summary }} 可直接创建临时体验 Session，或查看资源与版本信息后转入 Studio。</p>
+        <p>{{ selectedApp.summary }}</p>
         <div class="detail-actions">
           <button class="button primary" @click="startExperience(selectedApp)"><AppIcon name="spark" :size="17" />开始在线体验</button>
-          <button class="button secondary" @click="$emit('toast', '已提交 Studio 开通申请')">转入 Studio</button>
         </div>
       </div>
       <StatusBadge :label="selectedApp.status" />
@@ -91,24 +79,9 @@ onMounted(loadApps);
       </aside>
     </div>
 
-    <section class="content-panel market-manifest-panel">
-      <div class="section-heading"><div><h2>安装与 Manifest</h2><p>应用会安装到 Studio 当前连接的 Station，而不是运行 Studio App 的 Windows PC。</p></div><StatusBadge label="可安装" /></div>
-      <div class="market-manifest-grid">
-        <dl>
-          <div><dt>安装目标</dt><dd>当前 Station</dd></div>
-          <div><dt>运行环境</dt><dd>{{ manifest.runtime }}</dd></div>
-          <div><dt>应用包</dt><dd><code>{{ manifest.package }}</code></dd></div>
-          <div><dt>健康检查</dt><dd>Dashboard + MCP tools/list</dd></div>
-        </dl>
-        <div><span>模型与依赖</span><ul><li v-for="item in manifest.models" :key="item">{{ item }}</li></ul></div>
-        <div><span>能力发现</span><div class="manifest-tags"><i v-for="item in manifest.capabilities" :key="item">{{ item }}</i></div></div>
-      </div>
-    </section>
-
     <section class="content-panel version-panel">
-      <div class="section-heading"><div><h2>版本记录</h2><p>当前组织只看到已授权的发布通道。</p></div></div>
-      <div class="release-line"><span class="release-dot" /><strong>{{ selectedApp.version }}</strong><span>{{ selectedApp.channel }}</span><span>2026-07-15</span><StatusBadge label="已发布" /></div>
-      <div class="release-line muted"><span class="release-dot" /><strong>上一个版本</strong><span>Deprecated</span><span>2026-06-28</span><span>已归档</span></div>
+      <div class="section-heading"><div><h2>当前版本</h2><p>当前组织只看到已授权的发布通道。</p></div></div>
+      <div class="release-line"><span class="release-dot" /><strong>{{ selectedApp.version }}</strong><span>{{ selectedApp.channel }}</span><StatusBadge label="已发布" /></div>
     </section>
   </div>
 
@@ -119,7 +92,7 @@ onMounted(loadApps);
 
   <div v-else class="page market-page">
     <header class="page-header">
-      <div><h1>应用市场</h1><p>发现可用应用，确认权益与 Station 兼容性。</p></div>
+      <div><h1>应用市场</h1><p>发现当前组织已授权的应用，查看版本与推荐资源。</p></div>
     </header>
 
     <div class="market-tools">
@@ -129,23 +102,23 @@ onMounted(loadApps);
       </div>
     </div>
 
-    <section class="market-showcase">
+    <section v-if="featuredApp" class="market-showcase">
       <div class="market-feature-image">
         <img src="/media/hub-feature-film-director-v1.png" alt="电影拍摄现场中的创作团队" />
         <div class="market-feature-copy">
-          <h2>影像内容理解助手</h2>
-          <p>快速理解视频内容，生成结构化信息，助力素材整理、内容分析与创意发掘。</p>
-          <div><StatusBadge label="已授权" /><span><AppIcon name="models" :size="15" />Station 2.4+</span><span><AppIcon name="usage" :size="15" />GPU 16GB+</span></div>
-          <button class="button secondary" @click="navigate('/market/apps/wan-video')">查看详情</button>
-          <button class="button primary" @click="startExperience({ id: 'wan-video' })">立即体验</button>
+          <h2>{{ featuredApp.name }}</h2>
+          <p>{{ featuredApp.summary }}</p>
+          <div><StatusBadge label="已授权" /><span><AppIcon name="usage" :size="15" />{{ featuredApp.gpu || '资源配置待补充' }}</span></div>
+          <button class="button secondary" @click="navigate(`/market/apps/${featuredApp.id}`)">查看详情</button>
+          <button class="button primary" @click="startExperience(featuredApp)">立即体验</button>
         </div>
       </div>
       <aside class="market-feature-detail">
-        <div class="featured-title"><span class="app-card-icon mint"><AppIcon name="video" :size="26" /></span><div><h2>影像内容理解助手</h2><p>让每一帧内容，都被看见更多可能。</p></div><StatusBadge label="已授权" /></div>
-        <p>支持对视频内容进行多模态理解，自动识别人、场景、动作与语义，生成结构化结果。</p>
-        <dl><div><dt>权益状态</dt><dd>已授权</dd></div><div><dt>兼容 Station</dt><dd>Station 2.4+</dd></div><div><dt>运行需求</dt><dd>GPU 16GB+</dd></div></dl>
-        <div class="studio-handoff"><AppIcon name="organization" :size="18" /><span><strong>安装与运行由 Studio 管理</strong><small>应用会发送到 Studio 当前连接的 Station。</small></span></div>
-        <button class="button primary full" @click="$emit('toast', '正在打开 Studio，并定位到当前 Station')"><AppIcon name="external" :size="17" />在 Studio 中打开</button>
+        <div class="featured-title"><span class="app-card-icon" :class="featuredApp.tone"><AppIcon :name="featuredApp.icon || 'market'" :size="26" /></span><div><h2>{{ featuredApp.name }}</h2><p>{{ featuredApp.category }}</p></div><StatusBadge label="已授权" /></div>
+        <p>{{ featuredApp.summary }}</p>
+        <dl><div><dt>权益状态</dt><dd>已授权</dd></div><div><dt>发布通道</dt><dd>{{ featuredApp.channel }}</dd></div><div><dt>推荐资源</dt><dd>{{ featuredApp.gpu || '待补充' }}</dd></div></dl>
+        <div class="studio-handoff"><AppIcon name="organization" :size="18" /><span><strong>应用体验由 Hub 管理</strong><small>如需正式生产部署，请联系组织管理员。</small></span></div>
+        <button class="button primary full" @click="navigate(`/market/apps/${featuredApp.id}`)"><AppIcon name="arrow" :size="17" />查看应用详情</button>
       </aside>
     </section>
 
@@ -156,8 +129,8 @@ onMounted(loadApps);
           <span class="app-card-icon" :class="app.tone"><AppIcon :name="app.icon" :size="22" /></span>
           <span class="market-app-copy"><strong>{{ app.name }}</strong><small>{{ app.summary }}</small></span>
           <StatusBadge :label="app.status" />
-          <span class="market-compat"><AppIcon name="models" :size="15" />Station 2.4+</span>
-          <span class="market-compat"><AppIcon name="usage" :size="15" />{{ app.gpu }}</span>
+          <span class="market-compat"><AppIcon name="models" :size="15" />{{ app.channel }}</span>
+          <span class="market-compat"><AppIcon name="usage" :size="15" />{{ app.gpu || '资源待补充' }}</span>
           <AppIcon name="chevron" :size="17" />
         </button>
       </div>

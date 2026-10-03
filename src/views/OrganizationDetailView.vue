@@ -1,50 +1,75 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
+import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
 import MetricCard from "../components/MetricCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
-import { apps, members, organizations } from "../data/mock";
 import { navigate } from "../router";
 
 const props = defineProps({ path: String });
-const emit = defineEmits(["toast"]);
+const emit = defineEmits(["toast", "context-change"]);
 const organizationId = computed(() => props.path.split("/").filter(Boolean).at(-1));
-const organization = computed(() => organizations.find((item) => item.id === organizationId.value));
-const entitlements = ref(apps.slice(0, 4).map((app, index) => ({ ...app, enabled: index < 3 })));
-const frozen = ref(false);
+const record = ref(null);
+const form = ref(null);
+const loading = ref(false);
+const saving = ref(false);
+const error = ref("");
 
-const save = () => emit("toast", "客户权益草稿已在原型中保存");
+const load = async () => {
+  loading.value = true;
+  error.value = "";
+  try {
+    record.value = await controlApi.getManagedOrganization(organizationId.value);
+    form.value = { plan: record.value.organization.plan, status: record.value.organization.status, appIds: [...record.value.appIds] };
+  } catch (cause) {
+    record.value = null;
+    error.value = cause instanceof Error ? cause.message : "客户组织加载失败";
+  } finally {
+    loading.value = false;
+  }
+};
+watch(organizationId, load, { immediate: true });
+
+const save = async (status = form.value.status) => {
+  saving.value = true;
+  error.value = "";
+  try {
+    record.value = await controlApi.updateManagedOrganization(organizationId.value, {
+      ...form.value,
+      status,
+      expectedEntitlementVersion: record.value.organization.entitlementVersion,
+    });
+    form.value = { plan: record.value.organization.plan, status: record.value.organization.status, appIds: [...record.value.appIds] };
+    emit("context-change");
+    emit("toast", "客户组织与权益已保存");
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : "保存失败";
+  } finally {
+    saving.value = false;
+  }
+};
 </script>
 
 <template>
-  <div v-if="organization" class="page detail-workspace-page">
+  <div class="page detail-workspace-page">
     <button class="back-button" @click="navigate('/ops/organizations')"><AppIcon name="arrow" :size="16" />返回客户组织</button>
-    <section class="detail-command-bar internal-detail">
-      <div class="org-avatar detail-org-avatar">{{ organization.name.slice(0, 1) }}</div>
-      <div class="detail-title-copy"><span class="page-overline internal-overline">CUSTOMER ORGANIZATION</span><h1>{{ organization.name }}</h1><p><code>{{ organization.id }}</code> · {{ organization.plan }} · 有效期 {{ organization.expires }}</p></div>
-      <div class="detail-command-actions"><StatusBadge :label="frozen ? '已冻结' : organization.status" /><button class="button danger" @click="frozen = !frozen">{{ frozen ? '解除冻结' : '冻结权益' }}</button><button class="button primary" @click="save">保存更改</button></div>
-    </section>
-
-    <section class="metric-grid compact"><MetricCard label="成员席位" :value="String(organization.members)" detail="按套餐限制" icon="members" tone="mint" /><MetricCard label="应用权益" :value="String(organization.apps)" detail="含 Preview 应用" icon="market" tone="blue" /><MetricCard label="本月 API" :value="organization.apiUsage" detail="用量摘要" icon="usage" tone="violet" /></section>
-
-    <div class="detail-two-column organization-detail-grid">
-      <section class="content-panel">
-        <div class="section-heading"><div><h2>应用与模型权益</h2><p>套餐基础权益与客户单独授权合并计算。</p></div><span>权益版本 v12</span></div>
-        <div class="entitlement-list"><label v-for="item in entitlements" :key="item.id"><span class="app-card-icon" :class="item.tone"><AppIcon :name="item.icon" :size="19" /></span><span><strong>{{ item.name }}</strong><small>{{ item.channel }} · {{ item.version }} · {{ item.gpu }}</small></span><input v-model="item.enabled" type="checkbox" /></label></div>
+    <p v-if="loading">正在加载客户组织…</p>
+    <section v-if="error" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>操作未完成</strong><p>{{ error }}</p></div><button class="button secondary" @click="load">重新加载</button></section>
+    <template v-if="record && form">
+      <section class="detail-command-bar internal-detail">
+        <div class="org-avatar detail-org-avatar">{{ record.organization.shortName }}</div>
+        <div class="detail-title-copy"><span class="page-overline internal-overline">CUSTOMER ORGANIZATION</span><h1>{{ record.organization.name }}</h1><p><code>{{ record.organization.organizationId }}</code> · {{ record.organization.plan }} · 权益版本 v{{ record.organization.entitlementVersion }}</p></div>
+        <div class="detail-command-actions"><StatusBadge :label="record.organization.status" /><button class="button danger" :disabled="saving" @click="save(record.organization.status === '冻结' ? '正常' : '冻结')">{{ record.organization.status === '冻结' ? '解除冻结' : '冻结权益' }}</button><button class="button primary" :disabled="saving" @click="save()">保存更改</button></div>
       </section>
-      <aside class="content-panel customer-policy">
-        <div class="section-heading"><div><h2>套餐与限制</h2><p>组织层的业务约束。</p></div></div>
-        <label class="form-field"><span>套餐</span><select :value="organization.plan"><option>Enterprise</option><option>Studio</option><option>Pilot</option></select></label>
-        <label class="form-field"><span>默认区域</span><select><option>中国大陆 · 华东</option><option>中国大陆 · 华北</option></select></label>
-        <label class="form-field"><span>API 月预算</span><input value="41,000 点" /></label>
-        <label class="form-field"><span>体验并发</span><input value="2" /></label>
-      </aside>
-    </div>
 
-    <section class="content-panel organization-members">
-      <div class="section-heading"><div><h2>成员与角色</h2><p>这里只管理业务角色；密码与身份协议仍由 Login 管理。</p></div><button class="text-button" @click="$emit('toast', '邀请成员流程已打开')">邀请成员</button></div>
-      <div class="data-table member-table"><div class="table-head"><span>成员</span><span>角色</span><span>加入时间</span><span>状态</span><span /></div><div v-for="member in members.slice(0, 3)" :key="member.email" class="table-row"><span class="member-cell"><i>{{ member.avatar }}</i><span><strong>{{ member.name }}</strong><small>{{ member.email }}</small></span></span><span>{{ member.role }}</span><span>{{ member.joined }}</span><StatusBadge :label="member.status" /><button class="row-action">•••</button></div></div>
-    </section>
+      <section class="metric-grid compact"><MetricCard label="成员记录" :value="String(record.members.length)" detail="含待接受邀请" icon="members" tone="mint" /><MetricCard label="应用权益" :value="String(record.appIds.length)" detail="已授权应用" icon="market" tone="blue" /><MetricCard label="权益版本" :value="`v${record.organization.entitlementVersion}`" detail="每次保存递增" icon="usage" tone="violet" /></section>
+
+      <div class="detail-two-column organization-detail-grid">
+        <section class="content-panel"><div class="section-heading"><div><h2>应用权益</h2><p>客户仅能看到已发布且已授权的应用。</p></div><span>v{{ record.organization.entitlementVersion }}</span></div><div class="entitlement-list"><label v-for="app in record.apps" :key="app.id"><span class="app-card-icon" :class="app.tone"><AppIcon :name="app.icon || 'market'" :size="19" /></span><span><strong>{{ app.name }}</strong><small>{{ app.channel }} · {{ app.version }} · {{ app.gpu }}</small></span><input v-model="form.appIds" type="checkbox" :value="app.id" /></label></div><p v-if="!record.apps.length">暂无可授权的已发布应用。</p></section>
+        <aside class="content-panel customer-policy"><div class="section-heading"><div><h2>套餐与状态</h2><p>冻结后立即隐藏该组织的应用 Market。</p></div></div><label class="form-field"><span>套餐</span><select v-model="form.plan"><option>Enterprise</option><option>Studio</option><option>Pilot</option></select></label><label class="form-field"><span>状态</span><select v-model="form.status"><option>正常</option><option>冻结</option></select></label></aside>
+      </div>
+
+      <section class="content-panel organization-members"><div class="section-heading"><div><h2>成员与角色</h2><p>这里显示已保存的业务成员记录；认证账号由 Login 管理。</p></div></div><div class="data-table member-table"><div class="table-head"><span>成员</span><span>角色</span><span>加入时间</span><span>状态</span><span /></div><div v-for="member in record.members" :key="member.email" class="table-row"><span class="member-cell"><i>{{ member.avatar }}</i><span><strong>{{ member.name }}</strong><small>{{ member.email }}</small></span></span><span>{{ member.role }}</span><span>{{ member.joined }}</span><StatusBadge :label="member.status" /><span /></div></div><p v-if="!record.members.length">该组织尚无成员记录。</p></section>
+    </template>
   </div>
-  <div v-else class="page"><button class="back-button" @click="navigate('/ops/organizations')"><AppIcon name="arrow" :size="16" />返回客户组织</button><section class="empty-state"><AppIcon name="warning" :size="28" /><strong>找不到客户组织</strong><span>{{ organizationId }} 不存在，或当前角色无权查看。</span></section></div>
 </template>

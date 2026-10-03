@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 env:
-  VERSION: hub-v1.0.0
+  VERSION: ${{ github.ref == 'refs/heads/dev' && 'hub-v1.0.0-dev.1' || 'hub-v1.0.0' }}
 
 concurrency:
   group: verdantflare-hub-release
@@ -43,8 +43,8 @@ jobs:
         env:
           VITE_USE_MOCK: "false"
           VITE_CONTROL_API_BASE: /api/control
-          VITE_LOGIN_URL: https://login.verdantflarehub.com/sign-in
-          VITE_WWW_URL: https://www.verdantflarehub.com
+          VITE_LOGIN_URL: ${{ github.ref == 'refs/heads/dev' && 'https://login.dev.verdantflarehub.com/sign-in' || 'https://login.verdantflarehub.com/sign-in' }}
+          VITE_WWW_URL: ${{ github.ref == 'refs/heads/dev' && 'https://www.dev.verdantflarehub.com' || 'https://www.verdantflarehub.com' }}
         run: npm run build
 
       - name: Set up Docker Buildx

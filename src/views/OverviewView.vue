@@ -17,7 +17,6 @@ const error = ref("");
 let loadGeneration = 0;
 
 const featuredApp = computed(() => apps.value[0] || null);
-const activeKeys = computed(() => keys.value.filter((key) => key.status === "有效").length);
 const formatTime = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value || "—" : date.toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -53,10 +52,10 @@ watch(() => props.organization.organizationId, load, { immediate: true });
     <header class="overview-hero">
       <div>
         <h1>工作台</h1>
-        <p>从模型与应用发现，进入在线体验或 API 调用。</p>
+        <p>查看当前组织的目录与运营记录；在线体验和模型网关调用尚未接入。</p>
         <div class="welcome-actions">
           <button class="button primary" @click="navigate('/market')"><AppIcon name="market" :size="18" />浏览应用市场<AppIcon name="arrow" :size="16" /></button>
-          <button class="button secondary" @click="navigate('/api/playground')"><AppIcon name="spark" :size="18" />打开 Playground</button>
+          <button class="button secondary" @click="navigate('/api/models')"><AppIcon name="models" :size="18" />查看模型目录</button>
         </div>
       </div>
       <div class="hero-landscape" aria-hidden="true">
@@ -68,19 +67,21 @@ watch(() => props.organization.organizationId, load, { immediate: true });
     <section v-if="error" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>概览数据加载失败</strong><p>{{ error }}</p></div><button class="button secondary" @click="load">重新加载</button></section>
     <p v-if="loading" class="page-loading">正在读取当前组织的资源与用量…</p>
 
+    <section v-if="!loading && !error" class="safety-note"><AppIcon name="warning" :size="19" /><div><strong>部分数据尚未接通权威来源</strong><p>模型、任务、用量与账单可能仍含初始化记录，不能作为实时可用性或结算依据。</p></div></section>
+
     <section v-if="!loading && !error" class="resource-rail">
       <header><strong>我的资源与用量</strong><button @click="navigate('/api/usage')">查看用量详情<AppIcon name="arrow" :size="15" /></button></header>
       <div class="resource-items">
-        <div><span class="resource-icon"><AppIcon name="models" :size="20" /></span><span><small>可用模型</small><strong>{{ models.length }}</strong></span></div>
-        <div><span class="resource-icon"><AppIcon name="market" :size="20" /></span><span><small>可用应用</small><strong>{{ overview?.availableApps ?? apps.length }}</strong></span></div>
-        <div><span class="resource-icon"><AppIcon name="key" :size="20" /></span><span><small>有效 API 密钥</small><strong>{{ activeKeys }}</strong></span></div>
-        <div><span class="resource-icon"><AppIcon name="usage" :size="20" /></span><span><small>API 余额</small><strong>{{ (overview?.apiCredits ?? 0).toLocaleString() }}</strong></span></div>
+        <div><span class="resource-icon"><AppIcon name="models" :size="20" /></span><span><small>模型目录记录</small><strong>{{ models.length }}</strong></span></div>
+        <div><span class="resource-icon"><AppIcon name="market" :size="20" /></span><span><small>应用权益记录</small><strong>{{ overview?.availableApps ?? apps.length }}</strong></span></div>
+        <div><span class="resource-icon"><AppIcon name="key" :size="20" /></span><span><small>历史 Key 记录</small><strong>{{ keys.length }}</strong></span></div>
+        <div><span class="resource-icon"><AppIcon name="usage" :size="20" /></span><span><small>API 余额</small><strong>未接入</strong></span></div>
       </div>
     </section>
 
     <section v-if="featuredApp && !error" class="dashboard-feature">
       <div class="feature-mark"><img src="/brand/verdantflare-logo.svg" alt="" /></div>
-      <div class="feature-message"><small>当前组织可用应用</small><h2>{{ featuredApp.name }}</h2><p>{{ featuredApp.summary }}</p><button class="button primary" @click="navigate(`/market/apps/${featuredApp.id}`)">查看应用<AppIcon name="arrow" :size="16" /></button></div>
+      <div class="feature-message"><small>当前组织应用目录</small><h2>{{ featuredApp.name }}</h2><p>{{ featuredApp.summary }}</p><button class="button primary" @click="navigate(`/market/apps/${featuredApp.id}`)">查看应用<AppIcon name="arrow" :size="16" /></button></div>
       <div class="feature-art" aria-hidden="true"><span /><i /><i /></div>
       <ul><li><AppIcon name="market" :size="16" />{{ featuredApp.category }}</li><li><AppIcon name="release" :size="16" />{{ featuredApp.channel }} · {{ featuredApp.version }}</li><li><AppIcon name="usage" :size="16" />{{ featuredApp.gpu || '资源待补充' }}</li></ul>
     </section>

@@ -24,11 +24,6 @@ const filteredApps = computed(() => {
   });
 });
 const featuredApp = computed(() => filteredApps.value[0] || null);
-const startExperience = (app) => {
-  sessionStorage.setItem("vf_selected_experience_app", app.id);
-  navigate(`/experience?app=${encodeURIComponent(app.id)}`);
-};
-
 const loadApps = async () => {
   loading.value = true;
   loadError.value = "";
@@ -58,24 +53,23 @@ onMounted(loadApps);
         <h1>{{ selectedApp.name }}</h1>
         <p>{{ selectedApp.summary }}</p>
         <div class="detail-actions">
-          <button class="button primary" @click="startExperience(selectedApp)"><AppIcon name="spark" :size="17" />开始在线体验</button>
+          <button class="button primary" disabled><AppIcon name="spark" :size="17" />在线体验尚未开放</button>
         </div>
       </div>
-      <StatusBadge :label="selectedApp.status" />
+      <StatusBadge :label="selectedApp.channel === 'Preview' ? '预览发布' : '已发布'" />
     </section>
 
     <div class="detail-grid">
       <section class="content-panel">
-        <div class="section-heading"><div><h2>应用能力</h2><p>本组织当前可用的发布版本与体验范围。</p></div></div>
+        <div class="section-heading"><div><h2>应用信息</h2><p>此处仅展示 Control 中的发布记录；运行能力尚未核验。</p></div></div>
         <div class="feature-lines">
-          <div><AppIcon name="check" :size="17" /><span><strong>临时工作空间</strong><small>会话结束后按清理策略删除临时素材与运行数据。</small></span></div>
-          <div><AppIcon name="check" :size="17" /><span><strong>结果预览与下载</strong><small>支持体验结果预览，正式资产需转入 Studio 管理。</small></span></div>
-          <div><AppIcon name="check" :size="17" /><span><strong>组织权益保护</strong><small>创建 Session 前会再次检查权益版本、并发与体验额度。</small></span></div>
+          <div><AppIcon name="warning" :size="17" /><span><strong>在线运行待接入</strong><small>尚无体验工作区、结果预览或下载能力。</small></span></div>
+          <div><AppIcon name="check" :size="17" /><span><strong>组织目录权限</strong><small>此列表按 Control 中的组织应用权益返回。</small></span></div>
         </div>
       </section>
       <aside class="content-panel app-specs">
         <h2>资源与限制</h2>
-        <dl><div><dt>发布通道</dt><dd>{{ selectedApp.channel }}</dd></div><div><dt>应用版本</dt><dd>{{ selectedApp.version }}</dd></div><div><dt>推荐资源</dt><dd>{{ selectedApp.gpu }}</dd></div><div><dt>Session</dt><dd>{{ selectedApp.duration }}</dd></div><div><dt>计费方式</dt><dd>按实际运行分钟</dd></div></dl>
+        <dl><div><dt>发布通道</dt><dd>{{ selectedApp.channel }}</dd></div><div><dt>应用版本</dt><dd>{{ selectedApp.version }}</dd></div><div><dt>推荐资源</dt><dd>{{ selectedApp.gpu || '待核验' }}</dd></div><div><dt>在线体验</dt><dd>尚未开放</dd></div></dl>
       </aside>
     </div>
 
@@ -110,14 +104,14 @@ onMounted(loadApps);
           <p>{{ featuredApp.summary }}</p>
           <div><StatusBadge label="已授权" /><span><AppIcon name="usage" :size="15" />{{ featuredApp.gpu || '资源配置待补充' }}</span></div>
           <button class="button secondary" @click="navigate(`/market/apps/${featuredApp.id}`)">查看详情</button>
-          <button class="button primary" @click="startExperience(featuredApp)">立即体验</button>
+          <button class="button primary" disabled>在线体验尚未开放</button>
         </div>
       </div>
       <aside class="market-feature-detail">
         <div class="featured-title"><span class="app-card-icon" :class="featuredApp.tone"><AppIcon :name="featuredApp.icon || 'market'" :size="26" /></span><div><h2>{{ featuredApp.name }}</h2><p>{{ featuredApp.category }}</p></div><StatusBadge label="已授权" /></div>
         <p>{{ featuredApp.summary }}</p>
         <dl><div><dt>权益状态</dt><dd>已授权</dd></div><div><dt>发布通道</dt><dd>{{ featuredApp.channel }}</dd></div><div><dt>推荐资源</dt><dd>{{ featuredApp.gpu || '待补充' }}</dd></div></dl>
-        <div class="studio-handoff"><AppIcon name="organization" :size="18" /><span><strong>应用体验由 Hub 管理</strong><small>如需正式生产部署，请联系组织管理员。</small></span></div>
+        <div class="studio-handoff"><AppIcon name="organization" :size="18" /><span><strong>运行状态待核验</strong><small>Hub 记录不代表应用已在 Station 安装或可用。</small></span></div>
         <button class="button primary full" @click="navigate(`/market/apps/${featuredApp.id}`)"><AppIcon name="arrow" :size="17" />查看应用详情</button>
       </aside>
     </section>
@@ -128,7 +122,7 @@ onMounted(loadApps);
         <button v-for="app in filteredApps" :key="app.id" @click="navigate(`/market/apps/${app.id}`)">
           <span class="app-card-icon" :class="app.tone"><AppIcon :name="app.icon" :size="22" /></span>
           <span class="market-app-copy"><strong>{{ app.name }}</strong><small>{{ app.summary }}</small></span>
-          <StatusBadge :label="app.status" />
+          <StatusBadge :label="app.channel === 'Preview' ? '预览发布' : '已发布'" />
           <span class="market-compat"><AppIcon name="models" :size="15" />{{ app.channel }}</span>
           <span class="market-compat"><AppIcon name="usage" :size="15" />{{ app.gpu || '资源待补充' }}</span>
           <AppIcon name="chevron" :size="17" />

@@ -6,6 +6,7 @@ const wwwUrl = import.meta.env.VITE_WWW_URL || "https://www.verdantflarehub.com"
 
 defineProps({
   canManageApps: { type: Boolean, default: false },
+  canManageModels: { type: Boolean, default: false },
   canManageOrganizations: { type: Boolean, default: false },
   open: { type: Boolean, default: false },
 });
@@ -43,6 +44,7 @@ const groups = [
 const opsGroup = {
   label: "内部运营",
   items: [
+    { label: "公开模型目录", icon: "models", href: "/ops/models" },
     { label: "应用发布", icon: "release", href: "/ops/apps" },
     { label: "客户组织", icon: "clients", href: "/ops/organizations" },
   ],
@@ -77,10 +79,10 @@ const select = (href) => {
         </button>
       </section>
 
-      <section v-if="canManageApps || canManageOrganizations">
+      <section v-if="canManageApps || canManageModels || canManageOrganizations">
         <span class="nav-section-label">{{ opsGroup.label }}</span>
         <button
-          v-for="item in opsGroup.items.filter((entry) => entry.href === '/ops/apps' ? canManageApps : canManageOrganizations)"
+          v-for="item in opsGroup.items.filter((entry) => entry.href === '/ops/models' ? canManageModels : entry.href === '/ops/apps' ? canManageApps : canManageOrganizations)"
           :key="item.href"
           :class="{ active: isPathActive(item.href) }"
           @click="select(item.href)"

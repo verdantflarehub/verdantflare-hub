@@ -11,6 +11,7 @@ import MarketView from "./views/MarketView.vue";
 import NotFoundView from "./views/NotFoundView.vue";
 import OrganizationDetailView from "./views/OrganizationDetailView.vue";
 import OperationsView from "./views/OperationsView.vue";
+import ModelCatalogAdminView from "./views/ModelCatalogAdminView.vue";
 import OverviewView from "./views/OverviewView.vue";
 import ReleaseDetailView from "./views/ReleaseDetailView.vue";
 import SessionDetailView from "./views/SessionDetailView.vue";
@@ -32,6 +33,7 @@ const activeOrganization = computed(() => {
 });
 
 const canManageApps = computed(() => activeOrganization.value?.roles?.includes("app_ops_admin") || false);
+const canManageModels = computed(() => activeOrganization.value?.roles?.includes("api_ops_admin") || false);
 const canManageOrganizations = computed(() => activeOrganization.value?.roles?.includes("customer_success_admin") || false);
 
 const route = computed(() => {
@@ -40,6 +42,7 @@ const route = computed(() => {
   if (path === "/market" || path.startsWith("/market/apps/")) return { component: MarketView, area: "market" };
   if (path.startsWith("/experience/sessions/")) return { component: SessionDetailView, area: "experience" };
   if (path === "/experience") return { component: ExperienceView, area: "experience" };
+  if (path === "/ops/models" && canManageModels.value) return { component: ModelCatalogAdminView, area: "operations" };
   if (path.startsWith("/api/")) return { component: ApiView, area: "api" };
   if (path.startsWith("/settings/")) return { component: SettingsView, area: "settings" };
   if (path.startsWith("/ops/apps/") && path.endsWith("/releases") && canManageApps.value) return { component: ReleaseDetailView, area: "operations" };
@@ -73,7 +76,7 @@ const refreshContext = async () => {
 const changeOrganization = async (organizationId) => {
   try {
     context.value = await controlApi.setActiveOrganization(organizationId);
-    showToast("组织已切换，权限与额度已刷新");
+    showToast("组织已切换，目录与权限已刷新");
     navigate("/");
   } catch {
     showToast("组织切换失败，请稍后重试");
@@ -119,7 +122,7 @@ onMounted(loadContext);
   </div>
 
   <div v-else class="hub-shell">
-    <SideNav :can-manage-apps="canManageApps" :can-manage-organizations="canManageOrganizations" :open="sidebarOpen" @close="sidebarOpen = false" />
+    <SideNav :can-manage-apps="canManageApps" :can-manage-models="canManageModels" :can-manage-organizations="canManageOrganizations" :open="sidebarOpen" @close="sidebarOpen = false" />
     <TopBar
       :context="context"
       :active-organization="activeOrganization"

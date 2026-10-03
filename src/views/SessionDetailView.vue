@@ -31,7 +31,7 @@ const closeSession = async () => {
   try {
     await controlApi.closeExperienceSession(sessionId.value);
     await load();
-    emit("toast", "Session 已关闭");
+    emit("toast", "Session 记录已关闭");
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "关闭 Session 失败";
   }
@@ -50,33 +50,33 @@ const closeSession = async () => {
         <p><code>{{ session.id }}</code> · {{ session.region }} · {{ formatTime(session.startedAt) }} 启动</p>
       </div>
       <div class="detail-command-actions">
-        <StatusBadge :label="session.status" />
+        <StatusBadge label="待核验" />
         <button class="button secondary" disabled>工作区尚未接入<AppIcon name="external" :size="15" /></button>
-        <button v-if="session.status === '运行中'" class="button danger" @click="closeSession">关闭 Session</button>
+        <button v-if="session.status === '运行中'" class="button danger" @click="closeSession">关闭记录</button>
       </div>
     </section>
 
     <div class="detail-two-column">
       <section class="content-panel">
-        <div class="section-heading"><div><h2>会话生命周期</h2><p>从权益检查到资源释放的完整状态。</p></div></div>
-        <ol class="session-timeline"><li class="done"><span /><div><strong>Session 创建</strong><small>{{ formatTime(session.startedAt) }} · {{ session.region }}</small></div><time>已记录</time></li><li :class="session.status === '运行中' ? 'active' : 'done'"><span /><div><strong>当前状态</strong><small>{{ session.cleanupStatus }}</small></div><time>{{ session.status }}</time></li><li v-if="session.closedAt" class="done"><span /><div><strong>用户关闭</strong><small>{{ formatTime(session.closedAt) }}</small></div><time>已记录</time></li></ol>
+        <div class="section-heading"><div><h2>会话记录</h2><p>仅展示 Control 保存的记录，未核实运行资源或实际清理。</p></div></div>
+        <ol class="session-timeline"><li class="done"><span /><div><strong>Session 记录创建</strong><small>{{ formatTime(session.startedAt) }} · {{ session.region }}</small></div><time>已记录</time></li><li v-if="session.closedAt" class="done"><span /><div><strong>记录关闭</strong><small>{{ formatTime(session.closedAt) }}</small></div><time>已记录</time></li></ol>
       </section>
 
       <aside class="content-panel session-facts">
-        <div class="section-heading"><div><h2>资源与限制</h2><p>当前 Session 的受控运行边界。</p></div></div>
+        <div class="section-heading"><div><h2>记录字段</h2><p>以下值未经运行系统核验，不代表实际用量。</p></div></div>
         <dl>
-          <div><dt>剩余时间</dt><dd>{{ session.remaining }}</dd></div>
-          <div><dt>当前用量</dt><dd>{{ session.usage }}</dd></div>
+          <div><dt>剩余时间</dt><dd>未核验</dd></div>
+          <div><dt>当前用量</dt><dd>未核验</dd></div>
           <div><dt>区域</dt><dd>{{ session.region }}</dd></div>
           <div><dt>到期时间</dt><dd>{{ formatTime(session.expiresAt) }}</dd></div>
-          <div><dt>清理状态</dt><dd>{{ session.cleanupStatus }}</dd></div>
+          <div><dt>清理状态</dt><dd>未核验</dd></div>
         </dl>
       </aside>
     </div>
 
     <section class="content-panel session-results">
       <div class="section-heading"><div><h2>任务与临时结果</h2><p>任务结果接口尚未接入；此处不会显示模拟内容。</p></div></div>
-      <div class="prototype-empty-inline"><AppIcon name="playground" :size="24" /><div><strong>尚未产生任务结果</strong><span>进入工作区并完成一次最小操作后，任务状态与预览会显示在这里。</span></div></div>
+      <div class="prototype-empty-inline"><AppIcon name="playground" :size="24" /><div><strong>任务执行尚未接入</strong><span>当前不会运行应用，也没有可预览的体验结果。</span></div></div>
     </section>
   </div>
 

@@ -10,7 +10,6 @@ const props = defineProps({
 const emit = defineEmits(["organization-change", "menu"]);
 const orgOpen = ref(false);
 const profileOpen = ref(false);
-const notificationsOpen = ref(false);
 
 const initials = computed(() => props.context.displayName?.slice(0, 1) || "V");
 const loginUrl = import.meta.env.VITE_LOGIN_URL || "https://login.verdantflarehub.com/sign-in";
@@ -28,8 +27,6 @@ const chooseOrganization = (org) => {
     <button class="mobile-menu" aria-label="打开导航" @click="$emit('menu')"><AppIcon name="menu" /></button>
 
     <div class="topbar-spacer" />
-
-    <div class="service-health"><i />服务正常</div>
 
     <div class="org-switcher-wrap">
       <button class="org-switcher" @click="orgOpen = !orgOpen">
@@ -53,24 +50,11 @@ const chooseOrganization = (org) => {
     </div>
 
     <div class="topbar-action-wrap">
-      <button class="icon-button notification-button" aria-label="通知" @click="notificationsOpen = !notificationsOpen">
-        <AppIcon name="bell" :size="19" />
-        <i />
-      </button>
-      <div v-if="notificationsOpen" class="popover notifications-popover">
-        <div class="popover-head"><strong>通知</strong><span>2 条未读</span></div>
-        <button><i class="notice-mark mint" /><span><strong>体验 Session 即将到期</strong><small>ComfyUI Studio 将在 42 分钟后自动关闭。</small></span></button>
-        <button><i class="notice-mark amber" /><span><strong>本月 API 用量达到 68%</strong><small>可在用量页查看模型分布与预算趋势。</small></span></button>
-      </div>
-    </div>
-
-    <div class="topbar-action-wrap">
       <button class="profile-button" @click="profileOpen = !profileOpen">
         <span>{{ initials }}</span><AppIcon name="chevron" :size="15" />
       </button>
       <div v-if="profileOpen" class="popover profile-popover">
         <div class="profile-summary"><span>{{ initials }}</span><div><strong>{{ context.displayName }}</strong><small>{{ context.email }}</small></div></div>
-        <button><AppIcon name="members" :size="16" />个人资料</button>
         <button @click="logout"><AppIcon name="logout" :size="16" />退出登录</button>
       </div>
     </div>

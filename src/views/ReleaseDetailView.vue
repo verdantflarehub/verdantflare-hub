@@ -42,9 +42,16 @@ const save = async (channel = form.value.channel) => {
       icon: form.value.icon,
       tone: form.value.tone,
       channel,
+      developer: form.value.developer || "",
+      description: form.value.description || "",
+      memory: form.value.memory || "",
+      disk: form.value.disk || "",
+      cpu: form.value.cpu || "",
+      publicIconUrl: form.value.publicIconUrl || "",
+      publicVisible: Boolean(form.value.publicVisible) && ["Preview", "Stable"].includes(channel),
     });
     form.value = { ...record.value.app };
-    emit("toast", channel === "Preview" ? "应用已发布到 Preview" : "应用发布资料已保存");
+    emit("toast", channel === "Preview" ? "应用已加入 Preview 目录；运行状态待 Station 核验" : "应用目录资料已保存");
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "保存失败";
   } finally {
@@ -62,7 +69,7 @@ const save = async (channel = form.value.channel) => {
       <section class="detail-command-bar internal-detail">
         <div class="app-large-icon" :class="record.app.tone"><AppIcon :name="record.app.icon || 'market'" :size="31" /></div>
         <div class="detail-title-copy"><span class="page-overline internal-overline">APP RELEASE</span><h1>{{ record.app.name }} · {{ record.app.version }}</h1><p>应用 ID：<code>{{ record.app.id }}</code> · 已授权 {{ record.release.audience }}</p></div>
-        <div class="detail-command-actions"><StatusBadge :label="record.release.status" /><button class="button secondary" :disabled="saving" @click="save()">保存更改</button><button class="button primary" :disabled="saving || record.app.channel === 'Preview'" @click="save('Preview')">发布 Preview</button></div>
+        <div class="detail-command-actions"><StatusBadge :label="record.app.channel === 'Preview' ? '目录预览' : record.release.status" /><button class="button secondary" :disabled="saving" @click="save()">保存更改</button><button class="button primary" :disabled="saving || record.app.channel === 'Preview'" @click="save('Preview')">加入 Preview 目录</button></div>
       </section>
 
       <div class="detail-two-column release-detail-grid">
@@ -70,15 +77,20 @@ const save = async (channel = form.value.channel) => {
           <div class="section-heading"><div><h2>应用资料</h2><p>这里保存的目录资料由客户 Market 读取。</p></div></div>
           <div class="two-column-form"><label class="form-field"><span>应用名称</span><input v-model.trim="form.name" /></label><label class="form-field"><span>版本</span><input v-model.trim="form.version" /></label><label class="form-field"><span>分类</span><input v-model.trim="form.category" /></label><label class="form-field"><span>推荐资源</span><input v-model.trim="form.gpu" /></label><label class="form-field"><span>体验时长说明</span><input v-model.trim="form.duration" /></label></div>
           <label class="form-field"><span>简介</span><textarea v-model.trim="form.summary" rows="3" /></label>
+          <div class="section-heading"><div><h2>WWW 公开资料</h2><p>只展示手动公开的目录记录；版本与资源需求来自本页落库数据。</p></div></div>
+          <div class="two-column-form"><label class="form-field"><span>开发者</span><input v-model.trim="form.developer" /></label><label class="form-field"><span>参考内存</span><input v-model.trim="form.memory" /></label><label class="form-field"><span>参考磁盘</span><input v-model.trim="form.disk" /></label><label class="form-field"><span>参考 CPU</span><input v-model.trim="form.cpu" /></label></div>
+          <label class="form-field"><span>公开图标 URL（HTTPS，可选）</span><input v-model.trim="form.publicIconUrl" type="url" /></label>
+          <label class="form-field"><span>公开介绍</span><textarea v-model.trim="form.description" rows="3" /></label>
         </section>
         <aside class="content-panel release-controls">
           <div class="section-heading"><div><h2>发布通道</h2><p>Candidate 与 Paused 不向客户展示。</p></div></div>
           <label class="form-field"><span>通道</span><select v-model="form.channel"><option>Candidate</option><option>Preview</option><option :disabled="record.release.validation !== '6 / 6'">Stable</option><option>Paused</option></select></label>
-          <div class="release-warning"><AppIcon name="warning" :size="18" /><span>新应用没有 Station 标准验证记录，Stable 需先完成六项验证。客户还需获得组织权益才能看见 Preview 应用。</span></div>
+          <label class="form-field"><span>WWW 公开</span><select v-model="form.publicVisible" :disabled="!['Preview', 'Stable'].includes(form.channel)"><option :value="false">不公开</option><option :value="true">公开目录资料</option></select></label>
+          <div class="release-warning"><AppIcon name="warning" :size="18" /><span>当前未接入 Station 验证。Preview 只改变 Control 目录与组织可见范围，不部署应用，也不证明应用可运行；Stable 暂不可发布。</span></div>
         </aside>
       </div>
 
-      <section class="content-panel validation-panel"><div class="section-heading"><div><h2>标准验证</h2><p>当前记录仅展示已有验证结果；本页面不会伪造验证通过。</p></div><strong>{{ record.release.validation }}</strong></div></section>
+      <section class="content-panel validation-panel"><div class="section-heading"><div><h2>Station 验证</h2><p>尚未接入真实验证结果；Control 中的历史计数不作为部署或运行证明。</p></div><strong>未接入</strong></div></section>
     </template>
   </div>
 </template>

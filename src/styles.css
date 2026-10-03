@@ -397,12 +397,17 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .customer-policy .form-field + .form-field { margin-top: 13px; }.organization-members { margin-top: 24px; }
 .market-manifest-panel { margin-top: 20px; }
 .market-manifest-grid { display: grid; grid-template-columns: 1.2fr .8fr .8fr; gap: 24px; }
+.model-admin-grid { display: grid; grid-template-columns: minmax(280px, .72fr) minmax(0, 1.28fr); align-items: start; gap: 18px; }
+.model-admin-list .table-head, .model-admin-list .table-row { grid-template-columns: minmax(0, 1fr) 48px 16px; min-width: 0; }
+.model-admin-list button.table-row { width: 100%; border: 0; border-top: 1px solid var(--line); background: transparent; text-align: left; font: inherit; cursor: pointer; }
+.model-admin-list button.table-row:hover, .model-admin-list button.table-row.selected { background: rgba(76, 227, 154, .07); }
 .market-manifest-grid dl { margin: 0; }.market-manifest-grid dl div { min-height: 45px; display: grid; grid-template-columns: 100px 1fr; align-items: center; border-bottom: 1px solid var(--line); }
 .market-manifest-grid dt, .market-manifest-grid > div > span { color: var(--muted); font-size: 10px; }.market-manifest-grid dd { min-width: 0; margin: 0; font-size: 11px; word-break: break-word; }
 .market-manifest-grid ul { margin: 12px 0 0; padding-left: 17px; color: var(--muted-strong); font-size: 11px; line-height: 1.9; }
 .manifest-tags { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 7px; }.manifest-tags i { padding: 6px 9px; border: 1px solid rgba(76,227,154,.18); border-radius: 999px; background: rgba(76,227,154,.06); color: var(--green); font-size: 10px; font-style: normal; }
 
 @media (max-width: 1000px) {
+.model-admin-grid { grid-template-columns: 1fr; }
   .detail-two-column, .market-manifest-grid { grid-template-columns: 1fr; }
   .validation-grid { grid-template-columns: 1fr 1fr; }
 }

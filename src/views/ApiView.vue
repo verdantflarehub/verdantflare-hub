@@ -20,12 +20,6 @@ const taskSearch = ref("");
 const usage = ref(null);
 const usageLoading = ref(false);
 const usageError = ref("");
-const showKeyModal = ref(false);
-const keyName = ref("");
-const keyScopes = ref(["models:read", "tasks:write"]);
-const expiresInDays = ref(90);
-const creatingKey = ref(false);
-const createdSecret = ref("");
 const requestedModelId = new URLSearchParams(props.query).get("model") || "";
 const models = ref([]);
 const modelsLoading = ref(true);
@@ -116,27 +110,13 @@ watch([section, () => props.organization?.organizationId], ([value]) => {
 }, { immediate: true });
 
 const titleMap = {
-  models: ["MODEL MARKET", "模型市场", "浏览 Control 返回的模型目录、能力范围与调用方式。"],
+  models: ["MODEL MARKET", "模型市场", "模型网关目录尚未接入 Control；此处不展示未经核验的价格与可用性。"],
   keys: ["API CREDENTIALS", "API Keys", "管理 Control 中的组织级凭证记录；模型网关授权尚未接入。"],
   playground: ["API PLAYGROUND", "Playground", "查看模型参数与调用示例；在线提交尚未接入模型 API。"],
-  tasks: ["TASKS & LOGS", "任务与日志", "查看调用状态、错误原因与用量元数据。"],
-  usage: ["API USAGE", "用量与预算", "跟踪模型用量、预算进度与调用分布。"],
+  tasks: ["TASKS & LOGS", "任务与日志", "模型网关任务尚未接入；不展示初始化样例任务。"],
+  usage: ["API USAGE", "用量与预算", "模型网关用量尚未接入；不展示初始化预算或消耗。"],
 };
 const pageTitle = computed(() => titleMap[section.value] || titleMap.models);
-
-const createKey = async () => {
-  if (!keyName.value.trim()) return;
-  creatingKey.value = true;
-  try {
-    const result = await controlApi.createApiKey({ name: keyName.value.trim(), scopes: keyScopes.value, expiresInDays: Number(expiresInDays.value) });
-    createdSecret.value = result.secret;
-    await loadKeys();
-  } catch (cause) {
-    keysError.value = cause instanceof Error ? cause.message : "创建 API Key 失败";
-  } finally {
-    creatingKey.value = false;
-  }
-};
 
 const revokeKey = async (key) => {
   if (!window.confirm(`确定撤销「${key.name}」？此操作不可恢复。`)) return;
@@ -148,14 +128,6 @@ const revokeKey = async (key) => {
   } catch (cause) {
     keysError.value = cause instanceof Error ? cause.message : "撤销 API Key 失败";
   }
-};
-
-const finishKeyModal = () => {
-  showKeyModal.value = false;
-  keyName.value = "";
-  keyScopes.value = ["models:read", "tasks:write"];
-  expiresInDays.value = 90;
-  createdSecret.value = "";
 };
 
 const copyText = async (value, message = "已复制到剪贴板") => {
@@ -174,13 +146,13 @@ const codeSamples = {
   <div class="page api-page">
     <header class="page-header api-header">
       <div><span class="page-overline">{{ pageTitle[0] }}</span><h1>{{ pageTitle[1] }}</h1><p>{{ pageTitle[2] }}</p></div>
-      <button v-if="section === 'keys'" class="button primary" @click="showKeyModal = true"><AppIcon name="plus" :size="17" />创建 API Key</button>
+      <button v-if="section === 'keys'" class="button primary" disabled><AppIcon name="plus" :size="17" />网关 Key 待接入</button>
       <button v-if="section === 'tasks'" class="button secondary" :disabled="tasksLoading" @click="loadTasks">刷新状态</button>
       <button v-if="section === 'usage'" class="button secondary" :disabled="usageLoading" @click="loadUsage">刷新用量</button>
     </header>
 
     <template v-if="section === 'models'">
-      <div class="catalog-banner"><div><span>MODEL CATALOG</span><h2>先发现合适的模型，再确认调用权限。</h2><p>模型实际调用仍由 api.verdantflarehub.com 管理；Control 目录和网关授权尚未同步。</p></div><button class="button light" @click="navigate('/api/keys')">查看 API Key 记录<AppIcon name="arrow" :size="16" /></button></div>
+      <div class="catalog-banner"><div><span>MODEL CATALOG</span><h2>模型目录待接入</h2><p>模型实际调用由 api.verdantflarehub.com 管理；尚未同步的目录、价格和调用状态不作为实时信息展示。</p></div><button class="button light" @click="navigate('/api/keys')">查看历史 Key 记录<AppIcon name="arrow" :size="16" /></button></div>
       <section v-if="modelsError" class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>模型市场加载失败</strong><p>{{ modelsError }}</p></div><button class="button secondary" @click="loadModels">重新加载</button></section>
       <div class="catalog-tools"><label class="search-field"><AppIcon name="search" :size="18" /><input v-model="modelSearch" type="search" placeholder="搜索模型或提供方" /></label><span>{{ modelsLoading ? '正在加载模型…' : `${filteredModels.length} 个目录模型` }}</span></div>
       <section v-if="unavailableRequestedModel" class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>模型不在当前目录</strong><p>模型 {{ unavailableRequestedModel }} 未由 Control 返回，请检查模型 ID 或稍后刷新。</p></div></section>
@@ -188,23 +160,23 @@ const codeSamples = {
         <article v-for="model in filteredModels" :key="model.id" class="model-row" :class="{ 'is-targeted': model.id === requestedModelId }">
           <div class="model-logo">{{ model.name.slice(0, 2).toUpperCase() }}</div>
           <div class="model-title"><strong>{{ model.name }}</strong><span>{{ model.provider }} · {{ model.type }}</span></div>
-          <dl><div><dt>上下文 / 输入</dt><dd>{{ model.context }}</dd></div><div><dt>典型响应</dt><dd>{{ model.latency }}</dd></div><div><dt>参考价格</dt><dd>{{ model.price }}</dd></div></dl>
-          <StatusBadge :label="model.status" />
-          <button class="row-link" @click="navigate(`/api/playground?model=${encodeURIComponent(model.id)}`)">调试<AppIcon name="arrow" :size="15" /></button>
+          <dl><div><dt>上下文 / 输入</dt><dd>{{ model.context }}</dd></div><div><dt>网关状态</dt><dd>待核验</dd></div><div><dt>价格</dt><dd>待核验</dd></div></dl>
+          <StatusBadge label="待核验" />
+          <button class="row-link" @click="navigate(`/api/playground?model=${encodeURIComponent(model.id)}`)">查看说明<AppIcon name="arrow" :size="15" /></button>
         </article>
       </section>
-      <div v-if="!modelsLoading && !modelsError && !filteredModels.length" class="empty-state"><AppIcon name="search" :size="26" /><strong>暂无可用模型</strong><span>当前组织的模型目录为空，或没有匹配的搜索结果。</span></div>
+      <div v-if="!modelsLoading && !modelsError && !filteredModels.length" class="empty-state"><AppIcon name="search" :size="26" /><strong>模型目录尚未接入</strong><span>这里不会展示未从模型网关核验的目录与价格。</span></div>
     </template>
 
     <template v-else-if="section === 'keys'">
-      <section class="security-callout"><AppIcon name="key" :size="22" /><div><strong>Control Key 只在创建时完整显示一次</strong><p>当前 Key 仅在 Control 保存与撤销，尚未同步到模型网关；请勿将它当作可调用 verdantflare-api 的凭证。</p></div></section>
+      <section class="security-callout"><AppIcon name="key" :size="22" /><div><strong>模型网关凭证尚未接入</strong><p>以下仅为 Control 中已有的历史 Key 记录，不能据此判断模型 API 可调用；新建入口已暂停。</p></div></section>
       <section v-if="keysError" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>API Key 操作失败</strong><p>{{ keysError }}</p></div><button class="button secondary" @click="loadKeys">重新加载</button></section>
       <p v-if="keysLoading">正在加载 API Key…</p>
       <div class="data-table keys-table">
         <div class="table-head"><span>名称</span><span>Key</span><span>权限范围</span><span>创建时间</span><span>最后使用</span><span>状态</span><span /></div>
-        <div v-for="key in keys" :key="key.id" class="table-row"><span><strong>{{ key.name }}</strong><small>{{ key.id }}</small></span><code>{{ key.prefix }}</code><span class="scope-list"><i v-for="scope in key.scopes" :key="scope">{{ scope }}</i></span><span>{{ formatDate(key.createdAt || key.created) }}</span><span>{{ formatDateTime(key.lastUsedAt || key.lastUsed) }}</span><StatusBadge :label="key.status" /><button v-if="key.status === '有效'" class="row-action" :aria-label="`撤销 ${key.name}`" @click="revokeKey(key)"><AppIcon name="close" :size="15" /></button><span v-else /></div>
+        <div v-for="key in keys" :key="key.id" class="table-row"><span><strong>{{ key.name }}</strong><small>{{ key.id }}</small></span><code>{{ key.prefix }}</code><span class="scope-list"><i v-for="scope in key.scopes" :key="scope">{{ scope }}</i></span><span>{{ formatDate(key.createdAt || key.created) }}</span><span>{{ formatDateTime(key.lastUsedAt || key.lastUsed) }}</span><StatusBadge :label="key.status === '有效' ? '未接网关' : key.status" /><button v-if="key.status === '有效'" class="row-action" :aria-label="`撤销 ${key.name}`" @click="revokeKey(key)"><AppIcon name="close" :size="15" /></button><span v-else /></div>
       </div>
-      <p v-if="!keysLoading && !keysError && !keys.length">暂无 API Key。创建后仅显示一次完整密钥。</p>
+      <p v-if="!keysLoading && !keysError && !keys.length">暂无历史 Key 记录。模型网关凭证接入前不能创建。</p>
     </template>
 
     <template v-else-if="section === 'playground'">
@@ -232,11 +204,11 @@ const codeSamples = {
       <div class="task-filters"><button v-for="filter in ['全部', '运行中', '成功', '失败']" :key="filter" :class="{ active: taskFilter === filter }" @click="taskFilter = filter">{{ filter }}</button><label class="search-field small"><AppIcon name="search" :size="16" /><input v-model="taskSearch" placeholder="搜索 Task ID" /></label></div>
       <p v-if="tasksLoading">正在加载任务…</p>
       <div class="data-table tasks-table"><div class="table-head"><span>Task ID</span><span>模型</span><span>创建时间</span><span>耗时</span><span>用量</span><span>状态</span><span /></div><div v-for="task in filteredTasks" :key="task.id" class="table-row"><code>{{ task.id }}</code><strong>{{ task.model }}</strong><span>{{ task.created }}</span><span>{{ task.duration }}</span><span>{{ task.usage }}</span><StatusBadge :label="task.status" /><span /></div></div>
-      <p v-if="!tasksLoading && !tasksError && !filteredTasks.length">暂无匹配任务。</p>
+      <p v-if="!tasksLoading && !tasksError && !filteredTasks.length">模型网关任务尚未接入，暂无可核验记录。</p>
     </template>
 
     <template v-else-if="section === 'usage'">
-      <section v-if="usageError" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>用量加载失败</strong><p>{{ usageError }}</p></div><button class="button secondary" @click="loadUsage">重新加载</button></section>
+      <section v-if="usageError" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>真实用量暂不可用</strong><p>{{ usageError }}</p></div><button class="button secondary" @click="loadUsage">重新加载</button></section>
       <p v-if="usageLoading">正在读取用量…</p>
       <template v-if="usage && !usageError">
         <section class="budget-band"><div><span>本月 API 预算</span><strong>{{ usage.used.toLocaleString() }} <small>/ {{ usage.budget.toLocaleString() }} 点</small></strong><p>剩余 {{ usage.remaining.toLocaleString() }} 点 · 已使用 {{ usage.percentage.toFixed(1) }}%</p></div><div class="budget-ring"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="32" /><circle class="progress" cx="40" cy="40" r="32" :style="{ strokeDashoffset: 201 * (1 - Math.min(100, Math.max(0, usage.percentage)) / 100) }" /></svg><strong>{{ usage.percentage.toFixed(1) }}%</strong></div></section>
@@ -244,13 +216,5 @@ const codeSamples = {
       </template>
     </template>
 
-    <Transition name="modal">
-      <div v-if="showKeyModal" class="modal-backdrop" @click.self="finishKeyModal">
-        <section class="modal-card key-modal"><header><div><span class="page-overline">NEW CREDENTIAL</span><h2>{{ createdSecret ? '保存你的 API Key' : '创建 API Key' }}</h2><p>{{ createdSecret ? '离开此窗口后将无法再次查看完整 Key。' : '使用最小权限，并为不同环境创建独立 Key。' }}</p></div><button class="icon-button" aria-label="关闭弹窗" @click="finishKeyModal"><AppIcon name="close" /></button></header>
-          <template v-if="!createdSecret"><label class="form-field"><span>Key 名称</span><input v-model="keyName" placeholder="例如：内容生产服务" autofocus /></label><label class="form-field"><span>权限范围</span><div class="checkbox-list"><label><input v-model="keyScopes" type="checkbox" value="models:read" disabled /><span><strong>models:read</strong><small>读取已授权模型</small></span></label><label><input v-model="keyScopes" type="checkbox" value="tasks:write" /><span><strong>tasks:write</strong><small>创建和读取任务</small></span></label><label><input v-model="keyScopes" type="checkbox" value="usage:read" /><span><strong>usage:read</strong><small>读取组织用量</small></span></label></div></label><label class="form-field"><span>有效期（天）</span><input v-model.number="expiresInDays" type="number" min="1" max="365" /></label><footer><button class="button secondary" @click="finishKeyModal">取消</button><button class="button primary" :disabled="!keyName.trim() || creatingKey || expiresInDays < 1 || expiresInDays > 365" @click="createKey">{{ creatingKey ? '正在创建…' : '创建 Key' }}</button></footer></template>
-          <template v-else><div class="secret-box"><code>{{ createdSecret }}</code><button @click="copyText(createdSecret, 'API Key 已复制')"><AppIcon name="copy" :size="16" />复制</button></div><div class="secret-warning"><AppIcon name="warning" :size="18" /><span>请立即保存到安全的密钥管理工具，不要发送到聊天或邮件。</span></div><footer><button class="button primary full" @click="finishKeyModal">我已安全保存</button></footer></template>
-        </section>
-      </div>
-    </Transition>
   </div>
 </template>

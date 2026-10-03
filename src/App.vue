@@ -50,6 +50,7 @@ const route = computed(() => {
 });
 
 const loadContext = async () => {
+  context.value = null;
   loading.value = true;
   error.value = "";
   try {
@@ -57,7 +58,7 @@ const loadContext = async () => {
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "Center Context 加载失败";
   } finally {
-    loading.value = false;
+    loading.value = context.value === null && !error.value;
   }
 };
 

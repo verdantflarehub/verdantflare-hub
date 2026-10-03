@@ -4,11 +4,10 @@ import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
 import MetricCard from "../components/MetricCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
-import { experienceSessions as seedSessions } from "../data/mock";
 import { navigate } from "../router";
 
 const props = defineProps({ organization: Object, query: { type: String, default: "" } });
-const emit = defineEmits(["toast"]);
+const emit = defineEmits(["toast", "context-change"]);
 const requestedAppId = new URLSearchParams(props.query).get("app");
 const selectedAppId = ref(requestedAppId || sessionStorage.getItem("vf_selected_experience_app") || "");
 const apps = ref([]);
@@ -16,31 +15,55 @@ const appsLoading = ref(true);
 const appsError = ref("");
 const region = ref("cn-east-1");
 const creating = ref(false);
-const sessions = ref(structuredClone(seedSessions));
+const sessions = ref([]);
+const sessionsError = ref("");
+const sessionsLoading = ref(false);
 const showCreate = ref(false);
 
 const selectedApp = computed(() => apps.value.find((app) => app.id === selectedAppId.value) || apps.value[0]);
 const activeSessions = computed(() => sessions.value.filter((session) => session.status === "运行中"));
+const formatStartedAt = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value || "—" : date.toLocaleString("zh-CN");
+};
+
+const loadSessions = async () => {
+  sessionsLoading.value = true;
+  sessionsError.value = "";
+  try {
+    sessions.value = (await controlApi.listExperienceSessions()) || [];
+  } catch (cause) {
+    sessionsError.value = cause instanceof Error ? cause.message : "Session 加载失败";
+  } finally {
+    sessionsLoading.value = false;
+  }
+};
 
 const createSession = async () => {
   if (!selectedApp.value) return;
   creating.value = true;
   try {
-    const created = await controlApi.createExperienceSession({ appId: selectedApp.value.id, region: region.value });
-    sessions.value.unshift({ id: created.id, app: selectedApp.value.name, region: region.value === "cn-east-1" ? "华东 · 上海" : "华北 · 北京", startedAt: "刚刚", remaining: "60 分钟", status: "运行中", usage: "0 点" });
-    props.organization.experienceCredits -= 20;
+    await controlApi.createExperienceSession({ appId: selectedApp.value.id, region: region.value });
+    await loadSessions();
     showCreate.value = false;
+    emit("context-change");
     emit("toast", `${selectedApp.value.name} Session 已创建`);
+  } catch (cause) {
+    sessionsError.value = cause instanceof Error ? cause.message : "创建 Session 失败";
   } finally {
     creating.value = false;
   }
 };
 
 const closeSession = async (session) => {
-  await controlApi.closeExperienceSession(session.id);
-  session.status = "已结束";
-  session.remaining = "用户关闭";
-  emit("toast", "Session 已关闭，资源进入清理队列");
+  try {
+    await controlApi.closeExperienceSession(session.id);
+    await loadSessions();
+    emit("context-change");
+    emit("toast", "Session 已关闭");
+  } catch (cause) {
+    sessionsError.value = cause instanceof Error ? cause.message : "关闭 Session 失败";
+  }
 };
 
 const loadApps = async () => {
@@ -58,7 +81,7 @@ const loadApps = async () => {
   }
 };
 
-onMounted(loadApps);
+onMounted(() => { loadApps(); loadSessions(); });
 </script>
 
 <template>
@@ -71,16 +94,18 @@ onMounted(loadApps);
     <section class="metric-grid compact">
       <MetricCard label="可用额度" :value="`${organization.experienceCredits} 点`" detail="本月有效" icon="experience" tone="mint" />
       <MetricCard label="运行中 Session" :value="String(activeSessions.length)" detail="并发上限 2 个" icon="playground" tone="blue" />
-      <MetricCard label="本月体验" value="9 次" detail="平均 26 分钟" icon="usage" tone="violet" />
+      <MetricCard label="Session 记录" :value="String(sessions.length)" detail="当前组织" icon="usage" tone="violet" />
     </section>
 
     <section v-if="appsError" class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>应用权益加载失败</strong><p>{{ appsError }}</p></div><button class="button secondary" @click="loadApps">重新加载</button></section>
+    <section v-if="sessionsError" class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>Session 操作未完成</strong><p>{{ sessionsError }}</p></div><button class="button secondary" @click="loadSessions">重新加载</button></section>
+    <p v-if="sessionsLoading">正在加载 Session 记录…</p>
 
     <section v-if="activeSessions.length" class="live-session-card">
       <div class="live-session-mark"><span /><AppIcon name="nodes" :size="26" /></div>
-      <div class="live-session-main"><span class="live-label">LIVE SESSION</span><h2>{{ activeSessions[0].app }}</h2><p>{{ activeSessions[0].id }} · {{ activeSessions[0].region }} · {{ activeSessions[0].startedAt }} 启动</p></div>
-      <div class="session-clock"><span>剩余时间</span><strong>00:42:18</strong><small>到期后自动释放资源</small></div>
-      <div class="session-actions"><button class="button primary" @click="$emit('toast', '正在打开体验工作区…')">打开工作区<AppIcon name="external" :size="15" /></button><button class="button danger" @click="closeSession(activeSessions[0])">关闭</button></div>
+      <div class="live-session-main"><span class="live-label">LIVE SESSION</span><h2>{{ activeSessions[0].app }}</h2><p>{{ activeSessions[0].id }} · {{ activeSessions[0].region }} · {{ formatStartedAt(activeSessions[0].startedAt) }} 启动</p></div>
+      <div class="session-clock"><span>剩余时间</span><strong>{{ activeSessions[0].remaining }}</strong><small>到期后自动释放资源</small></div>
+      <div class="session-actions"><button class="button primary" disabled>工作区待接入<AppIcon name="external" :size="15" /></button><button class="button danger" @click="closeSession(activeSessions[0])">关闭</button></div>
     </section>
 
     <section>
@@ -88,12 +113,12 @@ onMounted(loadApps);
       <div class="data-table session-table">
         <div class="table-head"><span>Session / 应用</span><span>区域</span><span>启动时间</span><span>时长 / 清理</span><span>用量</span><span>状态</span><span /></div>
         <div v-for="session in sessions" :key="session.id" class="table-row">
-          <span><strong>{{ session.app }}</strong><small>{{ session.id }}</small></span><span>{{ session.region }}</span><span>{{ session.startedAt }}</span><span>{{ session.remaining }}</span><span>{{ session.usage }}</span><StatusBadge :label="session.status" /><button class="row-action" :aria-label="`查看 ${session.app} 会话`" @click="navigate(`/experience/sessions/${session.id}`)"><AppIcon name="arrow" :size="15" /></button>
+          <span><strong>{{ session.app }}</strong><small>{{ session.id }}</small></span><span>{{ session.region }}</span><span>{{ formatStartedAt(session.startedAt) }}</span><span>{{ session.remaining }}</span><span>{{ session.usage }}</span><StatusBadge :label="session.status" /><button class="row-action" :aria-label="`查看 ${session.app} 会话`" @click="navigate(`/experience/sessions/${session.id}`)"><AppIcon name="arrow" :size="15" /></button>
         </div>
       </div>
     </section>
 
-    <section class="safety-note"><AppIcon name="warning" :size="19" /><div><strong>体验数据会自动清理</strong><p>Session 关闭或超时后释放计算资源，并按策略删除临时上传和生成结果。需要长期保存时，请先下载或转入 Studio。</p></div></section>
+    <section class="safety-note"><AppIcon name="warning" :size="19" /><div><strong>工作区与资源调度待接入</strong><p>当前后端只保存 Session 生命周期记录；不会实际分配计算资源或生成结果。</p></div></section>
 
     <Transition name="modal">
       <div v-if="showCreate" class="modal-backdrop" @click.self="showCreate = false">
@@ -102,7 +127,7 @@ onMounted(loadApps);
           <label class="form-field"><span>选择应用</span><select v-model="selectedAppId"><option v-for="app in apps.filter((item) => item.status !== '申请体验')" :key="app.id" :value="app.id">{{ app.name }} · {{ app.channel }}</option></select></label>
           <div class="selected-app-summary"><span class="app-card-icon" :class="selectedApp.tone"><AppIcon :name="selectedApp.icon" :size="23" /></span><div><strong>{{ selectedApp.name }}</strong><small>{{ selectedApp.gpu }} · {{ selectedApp.duration }}</small></div></div>
           <label class="form-field"><span>运行区域</span><select v-model="region"><option value="cn-east-1">华东 · 上海（推荐）</option><option value="cn-north-1">华北 · 北京</option></select></label>
-          <div class="cost-preview"><span>预计预留</span><strong>20 点</strong><small>结束后按实际用量结算</small></div>
+          <div class="cost-preview"><span>创建预留</span><strong>20 点</strong><small>当前仅记录额度与 Session，未接入实际运行用量结算</small></div>
           <footer><button class="button secondary" @click="showCreate = false">取消</button><button class="button primary" :disabled="creating" @click="createSession">{{ creating ? '正在创建…' : '创建 Session' }}</button></footer>
         </section>
       </div>

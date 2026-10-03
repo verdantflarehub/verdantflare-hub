@@ -108,6 +108,16 @@ onMounted(loadContext);
     </div>
   </div>
 
+  <div v-else-if="!activeOrganization" class="context-state error-state">
+    <div class="state-icon"><AppIcon name="warning" :size="28" /></div>
+    <h1>暂无可访问的组织</h1>
+    <p>当前账号尚未绑定有效组织，或所有组织成员关系已停用。业务页面不会开放。</p>
+    <div class="state-actions">
+      <button class="button primary" @click="loadContext">重新检查</button>
+      <a class="button secondary" :href="logoutUrl">退出登录</a>
+    </div>
+  </div>
+
   <div v-else class="hub-shell">
     <SideNav :can-manage-apps="canManageApps" :can-manage-organizations="canManageOrganizations" :open="sidebarOpen" @close="sidebarOpen = false" />
     <TopBar

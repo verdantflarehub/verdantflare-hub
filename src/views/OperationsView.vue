@@ -18,7 +18,7 @@ const releaseFilter = ref("全部");
 const planFilter = ref("全部");
 const showCreate = ref(false);
 const saving = ref(false);
-const form = ref({ id: "", name: "", version: "0.1.0", category: "", summary: "", plan: "Pilot" });
+const form = ref({ id: "", name: "", shortName: "", version: "0.1.0", category: "", summary: "", plan: "Pilot" });
 
 const load = async () => {
   loading.value = true;
@@ -44,7 +44,7 @@ const filteredOrganizations = computed(() => organizations.value.filter((item) =
 ));
 
 const openCreate = () => {
-  form.value = { id: "", name: "", version: "0.1.0", category: "", summary: "", plan: "Pilot" };
+  form.value = { id: "", name: "", shortName: "", version: "0.1.0", category: "", summary: "", plan: "Pilot" };
   showCreate.value = true;
 };
 const create = async () => {
@@ -65,7 +65,7 @@ const create = async () => {
       emit("toast", "候选应用已保存");
       navigate(`/ops/apps/${record.app.id}/releases`);
     } else {
-      const record = await controlApi.createManagedOrganization({ name: form.value.name, plan: form.value.plan });
+      const record = await controlApi.createManagedOrganization({ name: form.value.name, shortName: form.value.shortName, plan: form.value.plan });
       showCreate.value = false;
       emit("toast", "客户组织已创建");
       navigate(`/ops/organizations/${record.organization.organizationId}`);
@@ -99,6 +99,6 @@ const create = async () => {
       <p v-if="!loading && !filteredOrganizations.length">没有符合条件的组织。</p>
     </template>
 
-    <Transition name="modal"><div v-if="showCreate" class="modal-backdrop" @click.self="showCreate = false"><section class="modal-card invite-modal"><header><div><span class="page-overline">{{ section === 'apps' ? 'NEW CANDIDATE' : 'NEW ORGANIZATION' }}</span><h2>{{ section === 'apps' ? '收录候选应用' : '新建客户组织' }}</h2></div><button class="icon-button" aria-label="关闭弹窗" @click="showCreate = false"><AppIcon name="close" /></button></header><template v-if="section === 'apps'"><label class="form-field"><span>应用 ID</span><input v-model.trim="form.id" placeholder="例如 video-studio" /></label><label class="form-field"><span>应用名称</span><input v-model.trim="form.name" /></label><label class="form-field"><span>版本</span><input v-model.trim="form.version" /></label><label class="form-field"><span>分类</span><input v-model.trim="form.category" /></label><label class="form-field"><span>简介</span><input v-model.trim="form.summary" /></label></template><template v-else><label class="form-field"><span>组织名称</span><input v-model.trim="form.name" /></label><label class="form-field"><span>套餐</span><select v-model="form.plan"><option>Pilot</option><option>Studio</option><option>Enterprise</option></select></label></template><footer><button class="button secondary" @click="showCreate = false">取消</button><button class="button primary" :disabled="saving || !form.name || (section === 'apps' && (!form.id || !form.version))" @click="create">{{ saving ? '正在保存…' : '创建' }}</button></footer></section></div></Transition>
+    <Transition name="modal"><div v-if="showCreate" class="modal-backdrop" @click.self="showCreate = false"><section class="modal-card invite-modal"><header><div><span class="page-overline">{{ section === 'apps' ? 'NEW CANDIDATE' : 'NEW ORGANIZATION' }}</span><h2>{{ section === 'apps' ? '收录候选应用' : '新建客户组织' }}</h2></div><button class="icon-button" aria-label="关闭弹窗" @click="showCreate = false"><AppIcon name="close" /></button></header><template v-if="section === 'apps'"><label class="form-field"><span>应用 ID</span><input v-model.trim="form.id" placeholder="例如 video-studio" /></label><label class="form-field"><span>应用名称</span><input v-model.trim="form.name" /></label><label class="form-field"><span>版本</span><input v-model.trim="form.version" /></label><label class="form-field"><span>分类</span><input v-model.trim="form.category" /></label><label class="form-field"><span>简介</span><input v-model.trim="form.summary" /></label></template><template v-else><label class="form-field"><span>组织名称</span><input v-model.trim="form.name" /></label><label class="form-field"><span>简称（可选）</span><input v-model.trim="form.shortName" /></label><label class="form-field"><span>套餐</span><select v-model="form.plan"><option>Pilot</option><option>Studio</option><option>Enterprise</option></select></label></template><footer><button class="button secondary" @click="showCreate = false">取消</button><button class="button primary" :disabled="saving || !form.name || (section === 'apps' && (!form.id || !form.version))" @click="create">{{ saving ? '正在保存…' : '创建' }}</button></footer></section></div></Transition>
   </div>
 </template>

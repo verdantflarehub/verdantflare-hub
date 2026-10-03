@@ -29,6 +29,8 @@ VITE_WWW_URL=https://www.verdantflarehub.com
 
 `VITE_CONTROL_API_BASE` 是 Hub 唯一的 Center 业务入口。Market 与 Experience 首期仍由 Control Service 的内部模块承载，前端不依赖未来是否拆分独立服务。
 
+工作台、模型／应用市场、API Key、组织成员、套餐账单和内部运营页面在关闭 Mock 后都读取 Control 接口。当前模型目录、任务、用量和账单的后端初始记录尚未同步权威系统；Control 创建的 Key 不能直接调用 `verdantflare-api`。在线 Playground 与真实体验工作区暂不开放，页面不会模拟成功结果。
+
 本地联调时先在 `verdantflare-service-control` 启动 Go 服务，然后执行：
 
 ```bash
@@ -43,3 +45,5 @@ Vite 会将 `/api/control/*` 代理到 `http://localhost:8080`，浏览器继续
 ```bash
 npm run build
 ```
+
+工作区级自动化检查：`scripts/tests/hub_control_integration.sh`（需要 Docker、Go、npm；使用独立临时 PostgreSQL）。

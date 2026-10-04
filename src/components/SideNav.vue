@@ -44,7 +44,7 @@ const groups = [
 const opsGroup = {
   label: "内部运营",
   items: [
-    { label: "公开模型目录", icon: "models", href: "/ops/models" },
+    { label: "模型上架", icon: "models", href: "/ops/models" },
     { label: "应用发布", icon: "release", href: "/ops/apps" },
     { label: "客户组织", icon: "clients", href: "/ops/organizations" },
   ],

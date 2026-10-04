@@ -110,7 +110,7 @@ watch([section, () => props.organization?.organizationId], ([value]) => {
 }, { immediate: true });
 
 const titleMap = {
-  models: ["MODEL MARKET", "模型市场", "模型网关目录尚未接入 Control；此处不展示未经核验的价格与可用性。"],
+  models: ["MODEL MARKET", "模型市场", "展示运营已上架且当前网关 Token 可见的模型；最终调用权限与结算以网关为准。"],
   keys: ["API CREDENTIALS", "API Keys", "管理 Control 中的组织级凭证记录；模型网关授权尚未接入。"],
   playground: ["API PLAYGROUND", "Playground", "查看模型参数与调用示例；在线提交尚未接入模型 API。"],
   tasks: ["TASKS & LOGS", "任务与日志", "模型网关任务尚未接入；不展示初始化样例任务。"],
@@ -135,11 +135,15 @@ const copyText = async (value, message = "已复制到剪贴板") => {
   emit("toast", message);
 };
 
-const codeSamples = {
-  curl: `curl https://api.verdantflarehub.com/v1/videos \\\n  -H "Authorization: Bearer $VF_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "model": "verdantflare-sd2",\n    "prompt": "A cinematic modern dancer..."\n  }'`,
-  javascript: `const task = await client.videos.create({\n  model: "verdantflare-sd2",\n  prompt: "A cinematic modern dancer...",\n});\n\nconsole.log(task.id);`,
-  python: `task = client.videos.create(\n    model="verdantflare-sd2",\n    prompt="A cinematic modern dancer...",\n)\n\nprint(task.id)`,
-};
+const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? {
+  curl: `curl https://api.verdantflarehub.com/v1/videos -H "Authorization: Bearer $VF_API_KEY" -H "Idempotency-Key: $REQUEST_ID" -H "Content-Type: application/json" -d '{"model":"verdantflare-sd2","messages":[{"role":"user","content":[{"type":"text","text":"城市夜景视频"}]}],"duration":8}'`,
+  javascript: `// requestId 是发起请求前已持久化的 UUID；超时后只查询原任务，不重新 POST。\nconst response = await fetch("https://api.verdantflarehub.com/v1/videos", { method: "POST", headers: { Authorization: "Bearer " + apiKey, "Idempotency-Key": requestId, "Content-Type": "application/json" }, body: JSON.stringify({ model: "verdantflare-sd2", messages: [{ role: "user", content: [{ type: "text", text: "城市夜景视频" }] }], duration: 8 }) });\nconsole.log(await response.json());`,
+  python: `# request_id 是发起请求前已持久化的 UUID；超时后只查询原任务，不重新 POST。\nimport requests\nresponse = requests.post("https://api.verdantflarehub.com/v1/videos", headers={"Authorization": "Bearer " + api_key, "Idempotency-Key": request_id}, json={"model": "verdantflare-sd2", "messages": [{"role": "user", "content": [{"type": "text", "text": "城市夜景视频"}]}], "duration": 8})\nprint(response.json())`,
+} : {
+  curl: `curl https://api.verdantflarehub.com/v1/chat/completions -H "Authorization: Bearer $VF_API_KEY" -H "Content-Type: application/json" -d '{"model":"${selectedModel.value}","messages":[{"role":"user","content":"你好"}]}'`,
+  javascript: `const response = await client.chat.completions.create({ model: "${selectedModel.value}", messages: [{ role: "user", content: "你好" }] });\nconsole.log(response.choices[0].message.content);`,
+  python: `response = client.chat.completions.create(model="${selectedModel.value}", messages=[{"role": "user", "content": "你好"}])\nprint(response.choices[0].message.content)`,
+});
 </script>
 
 <template>
@@ -152,7 +156,7 @@ const codeSamples = {
     </header>
 
     <template v-if="section === 'models'">
-      <div class="catalog-banner"><div><span>MODEL CATALOG</span><h2>模型目录待接入</h2><p>模型实际调用由 api.verdantflarehub.com 管理；尚未同步的目录、价格和调用状态不作为实时信息展示。</p></div><button class="button light" @click="navigate('/api/keys')">查看历史 Key 记录<AppIcon name="arrow" :size="16" /></button></div>
+      <div class="catalog-banner"><div><span>MODEL CATALOG</span><h2>已上架模型</h2><p>模型 ID 已与网关目录核对；列出不等于完成健康测试或向当前组织发放调用 Token。</p></div><button class="button light" @click="navigate('/api/keys')">查看 Key 状态<AppIcon name="arrow" :size="16" /></button></div>
       <section v-if="modelsError" class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>模型市场加载失败</strong><p>{{ modelsError }}</p></div><button class="button secondary" @click="loadModels">重新加载</button></section>
       <div class="catalog-tools"><label class="search-field"><AppIcon name="search" :size="18" /><input v-model="modelSearch" type="search" placeholder="搜索模型或提供方" /></label><span>{{ modelsLoading ? '正在加载模型…' : `${filteredModels.length} 个目录模型` }}</span></div>
       <section v-if="unavailableRequestedModel" class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>模型不在当前目录</strong><p>模型 {{ unavailableRequestedModel }} 未由 Control 返回，请检查模型 ID 或稍后刷新。</p></div></section>
@@ -160,12 +164,12 @@ const codeSamples = {
         <article v-for="model in filteredModels" :key="model.id" class="model-row" :class="{ 'is-targeted': model.id === requestedModelId }">
           <div class="model-logo">{{ model.name.slice(0, 2).toUpperCase() }}</div>
           <div class="model-title"><strong>{{ model.name }}</strong><span>{{ model.provider }} · {{ model.type }}</span></div>
-          <dl><div><dt>上下文 / 输入</dt><dd>{{ model.context }}</dd></div><div><dt>网关状态</dt><dd>待核验</dd></div><div><dt>价格</dt><dd>待核验</dd></div></dl>
-          <StatusBadge label="待核验" />
+          <dl><div><dt>上下文</dt><dd>{{ model.context || '未公布' }}</dd></div><div><dt>网关目录</dt><dd>当前可见</dd></div><div><dt>展示报价</dt><dd>{{ model.inputPrice && model.outputPrice ? `输入 ${model.inputPrice} / 输出 ${model.outputPrice} ${model.priceUnit}（参考）` : '未公布' }}</dd></div></dl>
+          <StatusBadge label="已上架" />
           <button class="row-link" @click="navigate(`/api/playground?model=${encodeURIComponent(model.id)}`)">查看说明<AppIcon name="arrow" :size="15" /></button>
         </article>
       </section>
-      <div v-if="!modelsLoading && !modelsError && !filteredModels.length" class="empty-state"><AppIcon name="search" :size="26" /><strong>模型目录尚未接入</strong><span>这里不会展示未从模型网关核验的目录与价格。</span></div>
+      <div v-if="!modelsLoading && !modelsError && !filteredModels.length" class="empty-state"><AppIcon name="search" :size="26" /><strong>暂无已上架模型</strong><span>请运营管理员核对网关模型，并在 Hub 模型上架页公开。</span></div>
     </template>
 
     <template v-else-if="section === 'keys'">

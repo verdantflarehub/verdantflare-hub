@@ -4,7 +4,7 @@ import { controlApi } from "../api/control";
 import AppIcon from "./AppIcon.vue";
 import StatusBadge from "./StatusBadge.vue";
 
-const props = defineProps({ organizationId: String });
+const props = defineProps({ organizationId: String, modelId: { type: String, required: true } });
 const models = ref([]);
 const modelsError = ref("");
 const usage = ref(null);
@@ -19,7 +19,7 @@ const submitError = ref("");
 const pendingRequest = ref(null);
 let pollTimer;
 
-const modelAvailable = computed(() => models.value.some((model) => model.id === "deepseek-flash"));
+const modelAvailable = computed(() => props.modelId === "deepseek-flash" && models.value.some((model) => model.id === props.modelId));
 const selectedRun = computed(() => runs.value.find((run) => run.id === selectedRunId.value) || null);
 const canSubmit = computed(() => modelAvailable.value && !modelsError.value && !usageError.value
   && usage.value?.enabled && usage.value.remaining > 0 && prompt.value.trim().length > 0 && prompt.value.trim().length <= 2000
@@ -59,7 +59,7 @@ const loadRuns = async () => {
   runsError.value = "";
   try {
     runs.value = (await controlApi.listModelExperienceRuns()) || [];
-    if (!runs.value.some((run) => run.id === selectedRunId.value)) selectedRunId.value = runs.value[0]?.id || "";
+    if (!runs.value.some((run) => run.id === selectedRunId.value && run.modelId === props.modelId)) selectedRunId.value = runs.value.find((run) => run.modelId === props.modelId)?.id || "";
     if (selectedRun.value?.status === "submitting") schedulePoll(selectedRun.value.id);
   } catch (cause) {
     runsError.value = cause instanceof Error ? cause.message : "体验记录加载失败";
@@ -70,7 +70,7 @@ const submit = async () => {
   if (!canSubmit.value) return;
   submitting.value = true;
   submitError.value = "";
-  const request = pendingRequest.value || { requestId: crypto.randomUUID(), modelId: "deepseek-flash", prompt: prompt.value.trim() };
+  const request = pendingRequest.value || { requestId: crypto.randomUUID(), modelId: props.modelId, prompt: prompt.value.trim() };
   pendingRequest.value = request;
   try {
     const run = await controlApi.createModelExperienceRun(request);
@@ -92,7 +92,7 @@ const submit = async () => {
     }
   } finally { submitting.value = false; }
 };
-watch(() => props.organizationId, () => {
+watch(() => [props.organizationId, props.modelId], () => {
   window.clearTimeout(pollTimer);
   selectedRunId.value = "";
   runs.value = [];
@@ -107,7 +107,7 @@ onUnmounted(() => window.clearTimeout(pollTimer));
 
 <template>
   <section class="content-panel model-experience-panel">
-    <div class="section-heading"><div><h2>模型在线体验</h2><p>DeepSeek Flash · 每次提交都会使用当前组织的真实 API 额度。</p></div><StatusBadge :label="modelAvailable && usage?.enabled && usage.remaining > 0 && !modelsError && !usageError ? '可调用' : '待核验'" /></div>
+    <div class="section-heading"><div><h2>模型在线体验</h2><p>{{ models.find((model) => model.id === modelId)?.name || modelId }} · 每次提交都会使用当前组织的真实 API 额度。</p></div><StatusBadge :label="modelAvailable && usage?.enabled && usage.remaining > 0 && !modelsError && !usageError ? '可调用' : '待核验'" /></div>
     <div class="model-experience-balance"><span>组织 API 余额</span><strong>{{ usage && !usageError ? `$${usage.remaining.toFixed(2)}` : '暂不可用' }}</strong><button class="text-button" @click="refresh">刷新状态</button></div>
     <div v-if="modelsError || usageError" class="ops-note"><AppIcon name="warning" :size="18" /><div><strong>暂时无法发起体验</strong><p>{{ modelsError || usageError }}</p></div></div>
     <div class="model-experience-layout">
@@ -133,6 +133,6 @@ onUnmounted(() => window.clearTimeout(pollTimer));
         <div v-else class="model-experience-empty"><AppIcon name="chat" :size="28" /><strong>等待你的第一次真实体验</strong><span>提交后，这里会显示模型原始回复和实际 token 用量。</span></div>
       </div>
     </div>
-    <div class="model-experience-history"><div class="section-heading"><div><h3>最近 24 小时</h3><p>只显示你在当前组织发起的任务；超时结果不自动重试。</p></div><button class="text-button" @click="loadRuns">刷新记录</button></div><p v-if="runsError" class="form-error">{{ runsError }}</p><div v-if="runs.length" class="model-experience-run-list"><button v-for="run in runs" :key="run.id" :class="{ active: selectedRunId === run.id }" @click="selectedRunId = run.id; run.status === 'submitting' && schedulePoll(run.id)"><span><strong>{{ run.modelId }}</strong><small>{{ formatTime(run.createdAt) }}</small></span><StatusBadge :label="statusLabel(run.status)" /><AppIcon name="chevron" :size="16" /></button></div><p v-else-if="!runsError" class="model-experience-history-empty">暂无模型体验记录。</p></div>
+    <div class="model-experience-history"><div class="section-heading"><div><h3>最近 24 小时</h3><p>只显示你在当前组织发起的任务；超时结果不自动重试。</p></div><button class="text-button" @click="loadRuns">刷新记录</button></div><p v-if="runsError" class="form-error">{{ runsError }}</p><div v-if="runs.some((run) => run.modelId === modelId)" class="model-experience-run-list"><button v-for="run in runs.filter((item) => item.modelId === modelId)" :key="run.id" :class="{ active: selectedRunId === run.id }" @click="selectedRunId = run.id; run.status === 'submitting' && schedulePoll(run.id)"><span><strong>{{ run.modelId }}</strong><small>{{ formatTime(run.createdAt) }}</small></span><StatusBadge :label="statusLabel(run.status)" /><AppIcon name="chevron" :size="16" /></button></div><p v-else-if="!runsError" class="model-experience-history-empty">暂无模型体验记录。</p></div>
   </section>
 </template>

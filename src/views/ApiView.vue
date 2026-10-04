@@ -211,7 +211,7 @@ const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? 
           <div class="model-title"><strong>{{ model.name }}</strong><span>{{ model.provider }} · {{ model.type }}</span></div>
           <dl><div><dt>上下文</dt><dd>{{ model.context || '未公布' }}</dd></div><div><dt>网关目录</dt><dd>当前可见</dd></div><div><dt>展示报价</dt><dd>{{ model.inputPrice && model.outputPrice ? `输入 ${model.inputPrice} / 输出 ${model.outputPrice} ${model.priceUnit}（参考）` : '未公布' }}</dd></div></dl>
           <StatusBadge label="已上架" />
-          <button class="row-link" @click="navigate(`/api/playground?model=${encodeURIComponent(model.id)}`)">查看说明<AppIcon name="arrow" :size="15" /></button>
+          <div class="model-row-actions"><button class="row-link" @click="navigate(`/api/playground?model=${encodeURIComponent(model.id)}`)">调用示例<AppIcon name="arrow" :size="15" /></button><button class="row-link" @click="navigate(`/experience?model=${encodeURIComponent(model.id)}`)">在线体验<AppIcon name="arrow" :size="15" /></button></div>
         </article>
       </section>
       <div v-if="!modelsLoading && !modelsError && !filteredModels.length" class="empty-state"><AppIcon name="search" :size="26" /><strong>暂无已上架模型</strong><span>请运营管理员核对网关模型，并在 Hub 模型上架页公开。</span></div>

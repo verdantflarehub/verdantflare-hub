@@ -19,7 +19,7 @@ const submitError = ref("");
 const pendingRequest = ref(null);
 let pollTimer;
 
-const modelAvailable = computed(() => props.modelId === "deepseek-flash" && models.value.some((model) => model.id === props.modelId));
+const modelAvailable = computed(() => models.value.some((model) => model.id === props.modelId && model.experienceMode === "chat"));
 const selectedRun = computed(() => runs.value.find((run) => run.id === selectedRunId.value) || null);
 const canSubmit = computed(() => modelAvailable.value && !modelsError.value && !usageError.value
   && usage.value?.enabled && usage.value.remaining > 0 && prompt.value.trim().length > 0 && prompt.value.trim().length <= 2000

@@ -405,7 +405,7 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .market-manifest-panel { margin-top: 20px; }
 .market-manifest-grid { display: grid; grid-template-columns: 1.2fr .8fr .8fr; gap: 24px; }
 .model-admin-grid { display: grid; grid-template-columns: minmax(280px, .72fr) minmax(0, 1.28fr); align-items: start; gap: 18px; }
-.model-admin-list .table-head, .model-admin-list .table-row { grid-template-columns: minmax(0, 1fr) 48px 16px; min-width: 0; }
+.model-admin-list .table-head, .model-admin-list .table-row { grid-template-columns: minmax(0, 1fr) 126px 16px; min-width: 0; }
 .model-admin-list button.table-row { width: 100%; border: 0; border-top: 1px solid var(--line); background: transparent; text-align: left; font: inherit; cursor: pointer; }
 .model-admin-list button.table-row:hover, .model-admin-list button.table-row.selected { background: rgba(76, 227, 154, .07); }
 .market-manifest-grid dl { margin: 0; }.market-manifest-grid dl div { min-height: 45px; display: grid; grid-template-columns: 100px 1fr; align-items: center; border-bottom: 1px solid var(--line); }

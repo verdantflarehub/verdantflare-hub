@@ -62,9 +62,9 @@ onMounted(() => {
     <template v-else-if="modelId">
       <section v-if="!selectedModel" class="empty-state"><AppIcon name="warning" :size="28" /><strong>模型不在当前目录</strong><span>请从模型市场重新选择。</span><button class="button secondary" @click="navigate('/api/models')">返回模型市场</button></section>
       <template v-else>
-        <div class="content-panel"><div class="section-heading"><div><h2>{{ selectedModel.name }}</h2><p>{{ selectedModel.provider }} · {{ selectedModel.type }} · {{ selectedModel.id }}</p></div><StatusBadge :label="modelId === 'deepseek-flash' ? '体验已接入' : '体验待接入'" /></div></div>
-        <ModelExperiencePanel v-if="modelId === 'deepseek-flash'" :key="`${props.organization?.organizationId}:${modelId}`" :organization-id="props.organization?.organizationId" :model-id="modelId" />
-        <section v-else class="safety-note"><AppIcon name="warning" :size="19" /><div><strong>该模型尚未开放 Hub 在线体验</strong><p>目录上架不等于完成付费体验接入。可先查看 API 调用示例；Hub 不会悄悄切换到 DeepSeek Flash。</p><button class="button secondary" @click="navigate(`/api/playground?model=${encodeURIComponent(modelId)}`)">查看调用示例</button></div></section>
+        <div class="content-panel"><div class="section-heading"><div><h2>{{ selectedModel.name }}</h2><p>{{ selectedModel.provider }} · {{ selectedModel.type }} · {{ selectedModel.id }}</p></div><StatusBadge :label="selectedModel.experienceMode === 'chat' ? '体验已接入' : '体验待接入'" /></div></div>
+        <ModelExperiencePanel v-if="selectedModel.experienceMode === 'chat'" :key="`${props.organization?.organizationId}:${modelId}`" :organization-id="props.organization?.organizationId" :model-id="modelId" />
+        <section v-else class="safety-note"><AppIcon name="warning" :size="19" /><div><strong>该模型尚未开放 Hub 在线体验</strong><p>目录上架与付费体验分开管理。可先查看 API 调用示例；Hub 不会切换到其他模型。</p><button class="button secondary" @click="navigate(`/api/playground?model=${encodeURIComponent(modelId)}`)">查看调用示例</button></div></section>
       </template>
     </template>
 
@@ -77,7 +77,7 @@ onMounted(() => {
     </template>
 
     <template v-else>
-      <section class="content-panel"><div class="section-heading"><div><h2>选择模型</h2><p>从已上架模型进入对应体验；目前只有 DeepSeek Flash 完成真实推理接入。</p></div><button class="text-button" @click="navigate('/api/models')">查看模型市场</button></div><div class="model-experience-run-list"><button v-for="model in models" :key="model.id" @click="navigate(`/experience?model=${encodeURIComponent(model.id)}`)"><span><strong>{{ model.name }}</strong><small>{{ model.id }}</small></span><StatusBadge :label="model.id === 'deepseek-flash' ? '可体验' : '待接入'" /><AppIcon name="chevron" :size="16" /></button></div><p v-if="!models.length">暂无已上架模型。</p></section>
+      <section class="content-panel"><div class="section-heading"><div><h2>选择模型</h2><p>从已上架模型进入对应体验；可用状态由管理端控制。</p></div><button class="text-button" @click="navigate('/api/models')">查看模型市场</button></div><div class="model-experience-run-list"><button v-for="model in models" :key="model.id" @click="navigate(`/experience?model=${encodeURIComponent(model.id)}`)"><span><strong>{{ model.name }}</strong><small>{{ model.id }}</small></span><StatusBadge :label="model.experienceMode === 'chat' ? '可体验' : '待接入'" /><AppIcon name="chevron" :size="16" /></button></div><p v-if="!models.length">暂无已上架模型。</p></section>
       <section class="content-panel"><div class="section-heading"><div><h2>选择应用</h2><p>应用目录与组织权益独立展示；运行资源未接入前不提供虚假体验。</p></div><button class="text-button" @click="navigate('/market')">查看应用市场</button></div><div class="model-experience-run-list"><button v-for="app in apps" :key="app.id" @click="navigate(`/experience?app=${encodeURIComponent(app.id)}`)"><span><strong>{{ app.name }}</strong><small>{{ app.id }}</small></span><StatusBadge :label="app.entitled ? '体验待接入' : '未授权'" /><AppIcon name="chevron" :size="16" /></button></div><p v-if="!apps.length">暂无已发布应用。</p></section>
     </template>
 

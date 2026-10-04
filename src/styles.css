@@ -1049,3 +1049,41 @@ button { letter-spacing: .005em; }
   .credit-grant-form .form-field { max-width: none; }
   .call-guide .section-heading { align-items: flex-start; flex-direction: column; gap: 12px; }
 }
+
+/* Real model experience uses the same panels, spacing, and semantic tones as Hub. */
+.model-experience-panel { margin: 22px 0 30px; }
+.model-experience-panel .section-heading { align-items: flex-start; }
+.model-experience-balance { min-height: 56px; margin: 20px 0; padding: 12px 16px; display: flex; align-items: center; gap: 14px; border: 1px solid rgba(76,227,154,.16); border-radius: 8px; background: rgba(76,227,154,.045); }
+.model-experience-balance span { color: var(--muted); font-size: 12px; }
+.model-experience-balance strong { margin-right: auto; color: var(--green); font-size: 18px; font-variant-numeric: tabular-nums; }
+.model-experience-layout { display: grid; grid-template-columns: minmax(280px, .9fr) minmax(340px, 1.1fr); gap: 16px; }
+.model-experience-form, .model-experience-result { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.012); }
+.model-experience-form .form-field textarea { min-height: 185px; }
+.model-experience-limit { display: flex; justify-content: space-between; gap: 14px; margin: 9px 0 18px; color: var(--muted); font-size: 11px; }
+.model-experience-consent { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 18px; color: var(--muted-strong); font-size: 12px; line-height: 1.55; cursor: pointer; }
+.model-experience-consent input { margin-top: 2px; accent-color: var(--green); }
+.model-experience-form > .button { min-height: 42px; }
+.model-experience-form .form-error { margin: 12px 0 0; }
+.model-experience-result { display: flex; flex-direction: column; min-height: 325px; }
+.model-experience-result-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 11px; }
+.model-experience-result-head > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-experience-prompt { margin: 20px 0 14px; padding-left: 12px; border-left: 2px solid var(--green); color: var(--muted-strong); font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.model-experience-answer { flex: 1; overflow: auto; color: var(--paper); font-size: 14px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.model-experience-pending, .model-experience-failure, .model-experience-empty { flex: 1; display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--muted); font-size: 12px; text-align: center; }
+.model-experience-pending .loading-ring { flex: 0 0 auto; }
+.model-experience-failure { color: var(--amber); }
+.model-experience-empty { flex-direction: column; gap: 8px; }
+.model-experience-empty svg { color: var(--green); }
+.model-experience-empty strong { color: var(--paper); font-size: 14px; }
+.model-experience-meta { display: flex; flex-wrap: wrap; gap: 7px 20px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+.model-experience-history { margin-top: 24px; }
+.model-experience-history .section-heading h3 { margin: 0; font-size: 15px; }
+.model-experience-run-list { display: grid; gap: 6px; }
+.model-experience-run-list button { min-height: 55px; padding: 8px 12px; display: flex; align-items: center; gap: 15px; border: 1px solid var(--line); border-radius: 8px; background: transparent; text-align: left; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; }
+.model-experience-run-list button:hover, .model-experience-run-list button.active { border-color: rgba(76,227,154,.3); background: rgba(76,227,154,.045); }
+.model-experience-run-list button > span:first-child { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.model-experience-run-list strong { font-size: 12px; }.model-experience-run-list small, .model-experience-history-empty { color: var(--muted); font-size: 11px; }
+.model-experience-run-list svg { color: var(--muted); }
+@media (max-width: 1000px) { .model-experience-layout { grid-template-columns: 1fr; } }
+@media (max-width: 680px) { .model-experience-form, .model-experience-result { padding: 16px; }.model-experience-balance { flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) { .model-experience-run-list button { transition: none; } }

@@ -14,6 +14,11 @@ const form = ref(null);
 const loading = ref(false);
 const saving = ref(false);
 const error = ref("");
+const credit = ref(null);
+const creditError = ref("");
+const creditAmount = ref("");
+const creditRequestId = ref("");
+const grantingCredit = ref(false);
 const showCreateMember = ref(false);
 const memberEmail = ref("");
 const memberRole = ref("成员");
@@ -36,6 +41,7 @@ const load = async () => {
   try {
     record.value = await controlApi.getManagedOrganization(organizationId.value);
     form.value = organizationForm(record.value.organization, record.value.appIds);
+    await loadCredit();
   } catch (cause) {
     record.value = null;
     error.value = cause instanceof Error ? cause.message : "客户组织加载失败";
@@ -43,7 +49,41 @@ const load = async () => {
     loading.value = false;
   }
 };
-watch(organizationId, load, { immediate: true });
+const loadCredit = async () => {
+  creditError.value = "";
+  try {
+    credit.value = await controlApi.getOrganizationApiCredit(organizationId.value);
+  } catch (cause) {
+    credit.value = null;
+    creditError.value = cause instanceof Error ? cause.message : "网关额度加载失败";
+  }
+};
+const grantCredit = async () => {
+  const amountCents = Math.round(Number(creditAmount.value) * 100);
+  if (!Number.isFinite(amountCents) || amountCents < 1 || amountCents > 100000 || Math.abs(amountCents / 100 - Number(creditAmount.value)) > 0.000001) {
+    creditError.value = "请输入 0.01–1000.00 美元，最多两位小数";
+    return;
+  }
+  if (!creditRequestId.value) creditRequestId.value = crypto.randomUUID();
+  grantingCredit.value = true;
+  creditError.value = "";
+  try {
+    credit.value = await controlApi.grantOrganizationApiCredit(organizationId.value, { amountCents, requestId: creditRequestId.value });
+    creditAmount.value = "";
+    creditRequestId.value = "";
+    emit("toast", "API 额度已分配");
+  } catch (cause) {
+    creditError.value = cause instanceof Error ? cause.message : "分配额度失败";
+  } finally {
+    grantingCredit.value = false;
+  }
+};
+watch(organizationId, () => {
+  creditRequestId.value = "";
+  creditAmount.value = "";
+  credit.value = null;
+  load();
+}, { immediate: true });
 
 const save = async (status = form.value.status) => {
   saving.value = true;
@@ -115,6 +155,8 @@ const saveMember = async () => {
       </section>
 
       <section class="metric-grid compact"><MetricCard label="成员记录" :value="String(record.members.length)" detail="含待接受邀请" icon="members" tone="mint" /><MetricCard label="应用权益" :value="String(record.appIds.length)" detail="已授权应用" icon="market" tone="blue" /><MetricCard label="权益版本" :value="`v${record.organization.entitlementVersion}`" detail="每次保存递增" icon="usage" tone="violet" /></section>
+
+      <section class="content-panel organization-credit"><div class="section-heading"><div><h2>模型 API 额度</h2><p>网关账户余额为准；由客户成功管理员按美元追加。此操作不修改套餐账单。</p></div><button class="button secondary" :disabled="grantingCredit" @click="loadCredit">刷新额度</button></div><p v-if="creditError" class="form-error" role="alert">{{ creditError }}</p><div v-if="credit" class="metric-grid compact"><MetricCard label="累计分配" :value="`$${((credit.remainingQuota + credit.usedQuota) / 500000).toFixed(2)}`" detail="美元" icon="usage" tone="mint" /><MetricCard label="已使用" :value="`$${(credit.usedQuota / 500000).toFixed(2)}`" detail="美元" icon="tasks" tone="blue" /><MetricCard label="剩余额度" :value="`$${(credit.remainingQuota / 500000).toFixed(2)}`" :detail="credit.enabled ? '网关账号启用' : '网关账号已停用'" icon="check" tone="violet" /></div><div class="credit-grant-form"><label class="form-field"><span>本次追加金额（USD）</span><input v-model="creditAmount" type="number" min="0.01" max="1000" step="0.01" inputmode="decimal" placeholder="例如 10.00" /></label><button class="button primary" :disabled="grantingCredit || record.organization.status === '冻结' || !creditAmount" @click="grantCredit">{{ grantingCredit ? '正在分配…' : '确认追加额度' }}</button></div><p class="credit-help">仅追加，不覆盖原余额。网络失败后使用同一请求 ID 重试，避免重复加额。</p></section>
 
       <div class="detail-two-column organization-detail-grid">
         <section class="content-panel"><div class="section-heading"><div><h2>应用权益</h2><p>客户仅能看到已发布且已授权的应用。</p></div><span>v{{ record.organization.entitlementVersion }}</span></div><div class="entitlement-list"><label v-for="app in record.apps" :key="app.id"><span class="app-card-icon" :class="app.tone"><AppIcon :name="app.icon || 'market'" :size="19" /></span><span><strong>{{ app.name }}</strong><small>{{ app.channel }} · {{ app.version }} · {{ app.gpu }}</small></span><input v-model="form.appIds" type="checkbox" :value="app.id" /></label></div><p v-if="!record.apps.length">暂无可授权的已发布应用。</p></section>

@@ -26,7 +26,7 @@ const groups = [
     label: "API CENTER",
     items: [
       { label: "API 密钥", icon: "key", href: "/api/keys" },
-      { label: "Playground", icon: "playground", href: "/api/playground" },
+      { label: "调用示例", icon: "playground", href: "/api/playground" },
       { label: "任务与日志", icon: "tasks", href: "/api/tasks" },
       { label: "用量", icon: "usage", href: "/api/usage" },
     ],

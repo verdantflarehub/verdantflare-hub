@@ -32,6 +32,7 @@ export const controlApi = {
   createApiKey: (payload) => request("/api-keys", { method: "POST", body: JSON.stringify(payload) }),
   listApiKeys: () => request("/api-keys"),
   revokeApiKey: (id) => request(`/api-keys/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  probeApiKey: (id) => request(`/api-keys/${encodeURIComponent(id)}/probe`),
   listModels: () => request("/api/models"),
   listApiTasks: () => request("/api/tasks"),
   getApiUsage: () => request("/api/usage"),
@@ -53,6 +54,8 @@ export const controlApi = {
   createManagedOrganization: (payload) => request("/ops/organizations", { method: "POST", body: JSON.stringify(payload) }),
   getManagedOrganization: (id) => request(`/ops/organizations/${encodeURIComponent(id)}`),
   updateManagedOrganization: (id, payload) => request(`/ops/organizations/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  getOrganizationApiCredit: (id) => request(`/ops/organizations/${encodeURIComponent(id)}/api-credit`),
+  grantOrganizationApiCredit: (id, payload) => request(`/ops/organizations/${encodeURIComponent(id)}/api-credit`, { method: "POST", body: JSON.stringify(payload) }),
   createManagedMember: (organizationId, payload) => request(`/ops/organizations/${encodeURIComponent(organizationId)}/members`, { method: "POST", body: JSON.stringify(payload) }),
   updateManagedMember: (organizationId, memberId, payload) => request(`/ops/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(memberId)}`, { method: "PATCH", body: JSON.stringify(payload) }),
 };

@@ -12,6 +12,12 @@ const modelSearch = ref("");
 const keys = ref([]);
 const keysLoading = ref(false);
 const keysError = ref("");
+const showCreateKey = ref(false);
+const keyDraft = ref({ name: "", scopes: [], expiresInDays: 90, requestId: "" });
+const creatingKey = ref(false);
+const createdKey = ref(null);
+const probeResults = ref({});
+const probingKeyId = ref("");
 const apiTasks = ref([]);
 const tasksLoading = ref(false);
 const tasksError = ref("");
@@ -25,15 +31,14 @@ const models = ref([]);
 const modelsLoading = ref(true);
 const modelsError = ref("");
 const selectedModel = ref(requestedModelId);
-const prompt = ref("一位穿着银白舞台服装的舞者，在流动的青绿色灯光中完成一段现代舞，电影感，稳定镜头。 ");
 const codeLanguage = ref("curl");
+const canManageKeys = computed(() => props.organization?.roles?.includes("organization_admin") || false);
 
 const section = computed(() => props.path.split("/")[2] || "models");
 const filteredTasks = computed(() => apiTasks.value.filter((task) =>
   (taskFilter.value === "全部" || task.status === taskFilter.value)
   && (!taskSearch.value.trim() || task.id.toLowerCase().includes(taskSearch.value.trim().toLowerCase())),
 ));
-const usageByModel = computed(() => Object.entries(usage.value?.byModel || {}).map(([name, value], index) => ({ name, value, tone: ["mint", "blue", "violet", "coral"][index % 4] })));
 const formatDate = (value) => {
   if (!value) return "—";
   const date = new Date(value);
@@ -104,17 +109,22 @@ const loadUsage = async () => {
 };
 watch([section, () => props.organization?.organizationId], ([value]) => {
   if (value === "models" || value === "playground") loadModels();
-  if (value === "keys") loadKeys();
+  if (value === "keys") { loadKeys(); loadModels(); }
   if (value === "tasks") loadTasks();
   if (value === "usage") loadUsage();
 }, { immediate: true });
+watch(() => props.organization?.organizationId, () => {
+  createdKey.value = null;
+  probeResults.value = {};
+  showCreateKey.value = false;
+});
 
 const titleMap = {
   models: ["MODEL MARKET", "模型市场", "展示运营已上架且当前网关 Token 可见的模型；最终调用权限与结算以网关为准。"],
-  keys: ["API CREDENTIALS", "API Keys", "管理 Control 中的组织级凭证记录；模型网关授权尚未接入。"],
-  playground: ["API PLAYGROUND", "Playground", "查看模型参数与调用示例；在线提交尚未接入模型 API。"],
+  keys: ["API CREDENTIALS", "API Keys", "创建限定模型的组织级网关 Key，按实际分配额度调用。"],
+  playground: ["API PLAYGROUND", "调用示例", "选择已上架模型，复制示例并用自己的 API Key 调用。"],
   tasks: ["TASKS & LOGS", "任务与日志", "模型网关任务尚未接入；不展示初始化样例任务。"],
-  usage: ["API USAGE", "用量与预算", "模型网关用量尚未接入；不展示初始化预算或消耗。"],
+  usage: ["API USAGE", "用量与额度", "显示模型网关的组织累计分配、已用与剩余额度；不含未接入的逐日明细。"],
 };
 const pageTitle = computed(() => titleMap[section.value] || titleMap.models);
 
@@ -130,19 +140,54 @@ const revokeKey = async (key) => {
   }
 };
 
+const openCreateKey = () => {
+  keyDraft.value = { name: "", scopes: models.value[0] ? [models.value[0].id] : [], expiresInDays: 90, requestId: crypto.randomUUID() };
+  keysError.value = "";
+  showCreateKey.value = true;
+};
+const createKey = async () => {
+  creatingKey.value = true;
+  keysError.value = "";
+  try {
+    createdKey.value = await controlApi.createApiKey(keyDraft.value);
+    showCreateKey.value = false;
+    await loadKeys();
+    emit("toast", "API Key 已创建，请立即保存密钥");
+  } catch (cause) {
+    keysError.value = cause instanceof Error ? cause.message : "创建 API Key 失败";
+  } finally {
+    creatingKey.value = false;
+  }
+};
+const probeKey = async (key) => {
+  probingKeyId.value = key.id;
+  try {
+    probeResults.value = { ...probeResults.value, [key.id]: await controlApi.probeApiKey(key.id) };
+  } catch (cause) {
+    probeResults.value = { ...probeResults.value, [key.id]: { ok: false, reason: cause instanceof Error ? cause.message : "网关不可用" } };
+  } finally {
+    probingKeyId.value = "";
+  }
+};
+const probeReason = (probe) => ({ ok: "Key 可用", revoked: "已撤销", expired: "已过期", organization_disabled: "组织已停用", insufficient_quota: "额度不足", no_available_models: "授权模型当前不可用" })[probe.reason] || probe.reason;
+
 const copyText = async (value, message = "已复制到剪贴板") => {
-  await navigator.clipboard?.writeText(value);
-  emit("toast", message);
+  try {
+    await navigator.clipboard.writeText(value);
+    emit("toast", message);
+  } catch {
+    emit("toast", "复制失败，请手动选择文本");
+  }
 };
 
 const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? {
-  curl: `curl https://api.verdantflarehub.com/v1/videos -H "Authorization: Bearer $VF_API_KEY" -H "Idempotency-Key: $REQUEST_ID" -H "Content-Type: application/json" -d '{"model":"verdantflare-sd2","messages":[{"role":"user","content":[{"type":"text","text":"城市夜景视频"}]}],"duration":8}'`,
-  javascript: `// requestId 是发起请求前已持久化的 UUID；超时后只查询原任务，不重新 POST。\nconst response = await fetch("https://api.verdantflarehub.com/v1/videos", { method: "POST", headers: { Authorization: "Bearer " + apiKey, "Idempotency-Key": requestId, "Content-Type": "application/json" }, body: JSON.stringify({ model: "verdantflare-sd2", messages: [{ role: "user", content: [{ type: "text", text: "城市夜景视频" }] }], duration: 8 }) });\nconsole.log(await response.json());`,
-  python: `# request_id 是发起请求前已持久化的 UUID；超时后只查询原任务，不重新 POST。\nimport requests\nresponse = requests.post("https://api.verdantflarehub.com/v1/videos", headers={"Authorization": "Bearer " + api_key, "Idempotency-Key": request_id}, json={"model": "verdantflare-sd2", "messages": [{"role": "user", "content": [{"type": "text", "text": "城市夜景视频"}]}], "duration": 8})\nprint(response.json())`,
+  curl: `# 请先设置 VF_API_KEY；保存 REQUEST_ID，超时后查询原任务。\nREQUEST_ID=$(uuidgen)\ncurl https://api.verdantflarehub.com/v1/videos -H "Authorization: Bearer $VF_API_KEY" -H "Idempotency-Key: $REQUEST_ID" -H "Content-Type: application/json" -d '{"model":"verdantflare-sd2","messages":[{"role":"user","content":[{"type":"text","text":"城市夜景视频"}]}],"duration":8}'`,
+  javascript: `// Node.js 18+；请先设置 VF_API_KEY。请求 ID 须在提交前持久化，超时后查询原任务。\nimport { randomUUID } from "node:crypto";\nconst requestId = randomUUID();\nconst response = await fetch("https://api.verdantflarehub.com/v1/videos", { method: "POST", headers: { Authorization: "Bearer " + process.env.VF_API_KEY, "Idempotency-Key": requestId, "Content-Type": "application/json" }, body: JSON.stringify({ model: "verdantflare-sd2", messages: [{ role: "user", content: [{ type: "text", text: "城市夜景视频" }] }], duration: 8 }) });\nconsole.log(response.status, await response.json());`,
+  python: `# 请先设置 VF_API_KEY；请求 ID 须在提交前持久化，超时后查询原任务。\nimport os, uuid, requests\nrequest_id = str(uuid.uuid4())\nresponse = requests.post("https://api.verdantflarehub.com/v1/videos", headers={"Authorization": "Bearer " + os.environ["VF_API_KEY"], "Idempotency-Key": request_id}, json={"model": "verdantflare-sd2", "messages": [{"role": "user", "content": [{"type": "text", "text": "城市夜景视频"}]}], "duration": 8})\nprint(response.status_code, response.json())`,
 } : {
   curl: `curl https://api.verdantflarehub.com/v1/chat/completions -H "Authorization: Bearer $VF_API_KEY" -H "Content-Type: application/json" -d '{"model":"${selectedModel.value}","messages":[{"role":"user","content":"你好"}]}'`,
-  javascript: `const response = await client.chat.completions.create({ model: "${selectedModel.value}", messages: [{ role: "user", content: "你好" }] });\nconsole.log(response.choices[0].message.content);`,
-  python: `response = client.chat.completions.create(model="${selectedModel.value}", messages=[{"role": "user", "content": "你好"}])\nprint(response.choices[0].message.content)`,
+  javascript: `// Node.js 18+；请先设置 VF_API_KEY。\nconst response = await fetch("https://api.verdantflarehub.com/v1/chat/completions", { method: "POST", headers: { Authorization: "Bearer " + process.env.VF_API_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ model: "${selectedModel.value}", messages: [{ role: "user", content: "你好" }] }) });\nconsole.log(response.status, await response.json());`,
+  python: `# 请先设置 VF_API_KEY。\nimport os, requests\nresponse = requests.post("https://api.verdantflarehub.com/v1/chat/completions", headers={"Authorization": "Bearer " + os.environ["VF_API_KEY"]}, json={"model": "${selectedModel.value}", "messages": [{"role": "user", "content": "你好"}]})\nprint(response.status_code, response.json())`,
 });
 </script>
 
@@ -150,7 +195,7 @@ const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? 
   <div class="page api-page">
     <header class="page-header api-header">
       <div><span class="page-overline">{{ pageTitle[0] }}</span><h1>{{ pageTitle[1] }}</h1><p>{{ pageTitle[2] }}</p></div>
-      <button v-if="section === 'keys'" class="button primary" disabled><AppIcon name="plus" :size="17" />网关 Key 待接入</button>
+      <button v-if="section === 'keys' && canManageKeys" class="button primary" :disabled="modelsLoading || !models.length || !!modelsError" @click="openCreateKey"><AppIcon name="plus" :size="17" />创建 API Key</button>
       <button v-if="section === 'tasks'" class="button secondary" :disabled="tasksLoading" @click="loadTasks">刷新状态</button>
       <button v-if="section === 'usage'" class="button secondary" :disabled="usageLoading" @click="loadUsage">刷新用量</button>
     </header>
@@ -173,33 +218,24 @@ const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? 
     </template>
 
     <template v-else-if="section === 'keys'">
-      <section class="security-callout"><AppIcon name="key" :size="22" /><div><strong>模型网关凭证尚未接入</strong><p>以下仅为 Control 中已有的历史 Key 记录，不能据此判断模型 API 可调用；新建入口已暂停。</p></div></section>
+      <section class="security-callout"><AppIcon name="key" :size="22" /><div><strong>组织级网关凭证</strong><p>仅组织管理员可创建；选择已上架模型和有效期。密钥只在创建成功时显示，请妥善保存。连通性测试不发起付费推理。</p></div></section>
+      <section v-if="modelsError" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>授权模型加载失败</strong><p>{{ modelsError }}</p></div><button class="button secondary" @click="loadModels">重试</button></section>
+      <section v-if="createdKey" class="content-panel key-secret-panel"><div class="section-heading"><div><h2>请立即保存新密钥</h2><p>关闭后不会在 Hub 再次显示。不要把密钥提交到代码库或发送给他人。</p></div><button class="icon-button" aria-label="关闭密钥展示" @click="createdKey = null"><AppIcon name="close" :size="16" /></button></div><div class="key-secret-row"><code>{{ createdKey.secret }}</code><button class="button secondary" @click="copyText(createdKey.secret, '密钥已复制')"><AppIcon name="copy" :size="15" />复制密钥</button></div><p>已授权：{{ createdKey.scopes.join('、') }} · 有效至 {{ formatDate(createdKey.expiresAt) }}</p></section>
       <section v-if="keysError" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>API Key 操作失败</strong><p>{{ keysError }}</p></div><button class="button secondary" @click="loadKeys">重新加载</button></section>
       <p v-if="keysLoading">正在加载 API Key…</p>
       <div class="data-table keys-table">
         <div class="table-head"><span>名称</span><span>Key</span><span>权限范围</span><span>创建时间</span><span>最后使用</span><span>状态</span><span /></div>
-        <div v-for="key in keys" :key="key.id" class="table-row"><span><strong>{{ key.name }}</strong><small>{{ key.id }}</small></span><code>{{ key.prefix }}</code><span class="scope-list"><i v-for="scope in key.scopes" :key="scope">{{ scope }}</i></span><span>{{ formatDate(key.createdAt || key.created) }}</span><span>{{ formatDateTime(key.lastUsedAt || key.lastUsed) }}</span><StatusBadge :label="key.status === '有效' ? '未接网关' : key.status" /><button v-if="key.status === '有效'" class="row-action" :aria-label="`撤销 ${key.name}`" @click="revokeKey(key)"><AppIcon name="close" :size="15" /></button><span v-else /></div>
+        <div v-for="key in keys" :key="key.id" class="table-row"><span><strong>{{ key.name }}</strong><small>{{ key.source === 'legacy' ? '历史记录 · 不可调用' : `到期 ${formatDate(key.expiresAt)}` }}</small></span><code>{{ key.prefix }}</code><span class="scope-list"><i v-for="scope in key.scopes" :key="scope">{{ scope }}</i></span><span>{{ formatDate(key.createdAt || key.created) }}</span><span>{{ formatDateTime(key.lastUsedAt || key.lastUsed) }}</span><StatusBadge :label="key.source === 'legacy' ? '历史记录' : ({ active: '有效', revoked: '已撤销', expired: '已过期' })[key.status] || key.status" /><span class="key-actions"><button v-if="key.source === 'gateway' && canManageKeys" class="row-action" :disabled="probingKeyId === key.id" :aria-label="`测试 ${key.name}`" @click="probeKey(key)"><AppIcon name="check" :size="15" /></button><button v-if="key.status === 'active' && canManageKeys" class="row-action" :aria-label="`撤销 ${key.name}`" @click="revokeKey(key)"><AppIcon name="close" :size="15" /></button></span></div>
       </div>
-      <p v-if="!keysLoading && !keysError && !keys.length">暂无历史 Key 记录。模型网关凭证接入前不能创建。</p>
+      <p v-if="!keysLoading && !keysError && !keys.length">当前组织尚未创建 API Key。</p>
+      <div v-for="key in keys.filter((item) => probeResults[item.id])" :key="`probe-${key.id}`" class="key-probe-result" role="status"><strong>{{ key.name }}：{{ probeReason(probeResults[key.id]) }}</strong><span>剩余 ${{ ((probeResults[key.id].remainingQuota || 0) / 500000).toFixed(2) }} · 可见模型 {{ (probeResults[key.id].models || []).join('、') || '无' }} · 只读验证，未执行推理</span></div>
     </template>
 
     <template v-else-if="section === 'playground'">
       <section v-if="unavailableRequestedModel" class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>目标模型当前不可用</strong><p>已为你打开默认模型；{{ unavailableRequestedModel }} 不在当前目录中。</p></div></section>
-      <section class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>在线调试尚未连接模型网关</strong><p>此页不会模拟成功结果或扣减额度。模型调用与 Key 授权需完成与 verdantflare-api 的服务端对接。</p></div></section>
-      <div class="playground-shell">
-        <section class="playground-form">
-          <label class="form-field"><span>模型</span><select v-model="selectedModel" :disabled="modelsLoading || models.length === 0"><option v-for="model in models" :key="model.id" :value="model.id">{{ model.name }}</option></select></label>
-          <label class="form-field"><span>提示词</span><textarea v-model="prompt" rows="8" /></label>
-          <div class="inline-fields"><label class="form-field"><span>时长</span><select><option>5 秒</option><option>10 秒</option></select></label><label class="form-field"><span>画面比例</span><select><option>16:9</option><option>9:16</option><option>1:1</option></select></label></div>
-          <div class="request-estimate"><span>计费提示</span><strong>以模型网关为准</strong><small>当前页面不会发起请求或扣减额度</small></div>
-          <button class="button primary full" disabled><AppIcon name="spark" :size="17" />在线调试待接入</button>
-        </section>
-        <section class="playground-result">
-          <header><div><span>响应预览</span><small>未提交请求</small></div></header>
-          <div class="result-empty"><div><AppIcon name="playground" :size="30" /></div><strong>暂无真实任务响应</strong><p>模型网关接入后将在此显示实际任务和用量。</p></div>
-        </section>
-      </div>
-      <section class="playground-code"><div class="code-tabs"><button v-for="lang in ['curl', 'javascript', 'python']" :key="lang" :class="{ active: codeLanguage === lang }" @click="codeLanguage = lang">{{ lang }}</button><button class="copy-code" @click="copyText(codeSamples[codeLanguage])"><AppIcon name="copy" :size="15" />复制代码</button></div><pre><code>{{ codeSamples[codeLanguage] }}</code></pre></section>
+      <section class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>调用示例</strong><p>复制下方代码，使用已创建的 Key 发起真实请求；此页面不保存密钥，也不发起付费推理。可在 API Keys 页先执行只读连通性测试。</p></div></section>
+      <section class="content-panel call-guide"><div class="section-heading"><div><h2>选择调用模型</h2><p>示例使用已上架模型 ID；请先在 API Keys 页创建包含该模型的 Key，并确认余额充足。</p></div><button class="button secondary" @click="navigate('/api/keys')">管理 API Keys<AppIcon name="arrow" :size="15" /></button></div><label class="form-field"><span>模型</span><select v-model="selectedModel" :disabled="modelsLoading || models.length === 0"><option v-for="model in models" :key="model.id" :value="model.id">{{ model.name }} · {{ model.id }}</option></select></label><p v-if="modelsError" class="form-error">{{ modelsError }}</p><p v-if="!modelsLoading && !modelsError && !models.length">暂无已上架模型，暂不能生成调用示例。</p><p class="credit-help">执行示例会实际计费；下方代码只供复制，本页不会替你提交请求。</p></section>
+      <section v-if="selectedModel && !modelsError" class="playground-code"><div class="code-tabs"><button v-for="lang in ['curl', 'javascript', 'python']" :key="lang" :class="{ active: codeLanguage === lang }" @click="codeLanguage = lang">{{ lang }}</button><button class="copy-code" @click="copyText(codeSamples[codeLanguage])"><AppIcon name="copy" :size="15" />复制代码</button></div><pre><code>{{ codeSamples[codeLanguage] }}</code></pre></section>
     </template>
 
     <template v-else-if="section === 'tasks'">
@@ -215,10 +251,11 @@ const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? 
       <section v-if="usageError" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>真实用量暂不可用</strong><p>{{ usageError }}</p></div><button class="button secondary" @click="loadUsage">重新加载</button></section>
       <p v-if="usageLoading">正在读取用量…</p>
       <template v-if="usage && !usageError">
-        <section class="budget-band"><div><span>本月 API 预算</span><strong>{{ usage.used.toLocaleString() }} <small>/ {{ usage.budget.toLocaleString() }} 点</small></strong><p>剩余 {{ usage.remaining.toLocaleString() }} 点 · 已使用 {{ usage.percentage.toFixed(1) }}%</p></div><div class="budget-ring"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="32" /><circle class="progress" cx="40" cy="40" r="32" :style="{ strokeDashoffset: 201 * (1 - Math.min(100, Math.max(0, usage.percentage)) / 100) }" /></svg><strong>{{ usage.percentage.toFixed(1) }}%</strong></div></section>
-        <div class="usage-layout"><section class="content-panel"><div class="section-heading"><div><h2>用量摘要</h2><p>当前后端提供组织总量；逐日明细尚未接入。</p></div></div><div class="metric-grid compact"><MetricCard label="预算" :value="`${usage.budget.toLocaleString()} 点`" icon="usage" tone="mint" /><MetricCard label="已使用" :value="`${usage.used.toLocaleString()} 点`" icon="tasks" tone="blue" /><MetricCard label="剩余" :value="`${usage.remaining.toLocaleString()} 点`" icon="check" tone="violet" /></div></section><section class="content-panel model-distribution"><div class="section-heading"><div><h2>模型分布</h2><p>后端返回的消耗比例</p></div></div><div v-for="item in usageByModel" :key="item.name" class="distribution-row"><div><span><i :class="item.tone" />{{ item.name }}</span><strong>{{ item.value }}%</strong></div><div class="distribution-track"><i :class="item.tone" :style="{ width: `${item.value}%` }" /></div></div><p v-if="!usageByModel.length">暂无模型用量明细。</p></section></div>
+        <section class="budget-band"><div><span>组织累计 API 额度</span><strong>${{ usage.used.toFixed(2) }} <small>/ ${{ usage.budget.toFixed(2) }}</small></strong><p>剩余 ${{ usage.remaining.toFixed(2) }} · 已使用 {{ usage.percentage.toFixed(1) }}%</p></div><div class="budget-ring"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="32" /><circle class="progress" cx="40" cy="40" r="32" :style="{ strokeDashoffset: 201 * (1 - Math.min(100, Math.max(0, usage.percentage)) / 100) }" /></svg><strong>{{ usage.percentage.toFixed(1) }}%</strong></div></section>
+        <div class="usage-layout"><section class="content-panel"><div class="section-heading"><div><h2>用量摘要</h2><p>网关组织累计总量；逐日和按模型明细尚未接入。</p></div></div><div class="metric-grid compact"><MetricCard label="累计分配" :value="`$${usage.budget.toFixed(2)}`" icon="usage" tone="mint" /><MetricCard label="已使用" :value="`$${usage.used.toFixed(2)}`" icon="tasks" tone="blue" /><MetricCard label="剩余" :value="`$${usage.remaining.toFixed(2)}`" icon="check" tone="violet" /></div></section></div>
       </template>
     </template>
 
+    <Transition name="modal"><div v-if="showCreateKey" class="modal-backdrop" @click.self="showCreateKey = false"><section class="modal-card key-create-modal"><header><div><span class="page-overline">NEW API KEY</span><h2>创建组织 API Key</h2><p>仅授权选中的已上架模型。密钥创建后仅显示一次。</p></div><button class="icon-button" aria-label="关闭弹窗" @click="showCreateKey = false"><AppIcon name="close" /></button></header><label class="form-field"><span>名称</span><input v-model.trim="keyDraft.name" maxlength="50" placeholder="例如：生产环境" /></label><div class="form-field"><span>授权模型</span><div class="key-model-options"><label v-for="model in models" :key="model.id"><input v-model="keyDraft.scopes" type="checkbox" :value="model.id" /><span>{{ model.name }}<small>{{ model.id }}</small></span></label></div></div><label class="form-field"><span>有效期</span><select v-model.number="keyDraft.expiresInDays"><option :value="30">30 天</option><option :value="90">90 天</option><option :value="180">180 天</option><option :value="365">365 天</option></select></label><p v-if="keysError" class="form-error">{{ keysError }}</p><footer><button class="button secondary" @click="showCreateKey = false">取消</button><button class="button primary" :disabled="creatingKey || keyDraft.name.trim().length < 2 || !keyDraft.scopes.length" @click="createKey">{{ creatingKey ? '正在创建…' : '创建并显示密钥' }}</button></footer></section></div></Transition>
   </div>
 </template>

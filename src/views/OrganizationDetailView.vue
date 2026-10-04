@@ -20,7 +20,11 @@ const creditAmount = ref("");
 const creditRequestId = ref("");
 const grantingCredit = ref(false);
 const showCreateMember = ref(false);
-const memberEmail = ref("");
+const guestQuery = ref("");
+const guestPage = ref({ users: [], nextCursor: "" });
+const guestsLoading = ref(false);
+const guestError = ref("");
+const selectedGuest = ref(null);
 const memberRole = ref("成员");
 const editingMember = ref(null);
 const memberDraft = ref({ role: "成员", status: "待邀请" });
@@ -104,17 +108,41 @@ const save = async (status = form.value.status) => {
   }
 };
 
+const loadGuests = async (append = false) => {
+  guestsLoading.value = true;
+  guestError.value = "";
+  try {
+    const page = await controlApi.listGuests({ q: guestQuery.value.trim(), limit: 50, ...(append ? { cursor: guestPage.value.nextCursor } : {}) });
+    guestPage.value = { users: append ? [...guestPage.value.users, ...page.users] : page.users, nextCursor: page.nextCursor };
+    if (!append) selectedGuest.value = null;
+  } catch (cause) {
+    guestError.value = cause instanceof Error ? cause.message : "游客列表加载失败";
+  } finally {
+    guestsLoading.value = false;
+  }
+};
+const openGuestPicker = () => {
+  showCreateMember.value = true;
+  guestQuery.value = "";
+  guestPage.value = { users: [], nextCursor: "" };
+  loadGuests();
+};
+const selectGuest = (guest) => {
+  selectedGuest.value = guest;
+  memberRole.value = record.value.members.find((member) => member.email.toLowerCase() === guest.email.toLowerCase() && !member.centerUserId)?.role || "成员";
+};
 const createMember = async () => {
+  if (!selectedGuest.value) return;
   saving.value = true;
   error.value = "";
   try {
-    await controlApi.createManagedMember(organizationId.value, { email: memberEmail.value.trim(), role: memberRole.value });
+    await controlApi.bindManagedMember(organizationId.value, { loginUserId: selectedGuest.value.id, role: memberRole.value });
     record.value = await controlApi.getManagedOrganization(organizationId.value);
     showCreateMember.value = false;
-    memberEmail.value = "";
-    emit("toast", "待绑定成员记录已保存");
+    selectedGuest.value = null;
+    emit("toast", "用户已加入组织，可重新登录查看权限");
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : "保存成员失败";
+    guestError.value = cause instanceof Error ? cause.message : "绑定成员失败";
   } finally {
     saving.value = false;
   }
@@ -163,9 +191,9 @@ const saveMember = async () => {
         <aside class="content-panel customer-policy"><div class="section-heading"><div><h2>组织资料、套餐与状态</h2><p>资料保存到 Control；冻结后立即隐藏该组织的应用 Market。</p></div></div><label class="form-field"><span>组织名称</span><input v-model.trim="form.name" /></label><label class="form-field"><span>简称</span><input v-model.trim="form.shortName" /></label><label class="form-field"><span>默认区域</span><select v-model="form.defaultRegion"><option value="cn-east-1">华东 · 上海</option><option value="cn-north-1">华北 · 北京</option></select></label><label class="form-field"><span>行业</span><input v-model.trim="form.industry" /></label><label class="form-field"><span>账单联系邮箱</span><input v-model.trim="form.billingEmail" type="email" /></label><label class="form-field"><span>套餐</span><select v-model="form.plan"><option>Enterprise</option><option>Studio</option><option>Pilot</option></select></label><label class="form-field"><span>状态</span><select v-model="form.status"><option>正常</option><option>冻结</option></select></label></aside>
       </div>
 
-      <section class="content-panel organization-members"><div class="section-heading"><div><h2>成员与角色</h2><p>已绑定用户的角色和停用状态即时生效；待绑定记录不会创建 Login 账号。</p></div><button class="button secondary" @click="showCreateMember = true"><AppIcon name="plus" :size="16" />添加成员记录</button></div><div class="data-table member-table"><div class="table-head"><span>成员</span><span>角色</span><span>加入时间</span><span>状态</span><span /></div><div v-for="member in record.members" :key="member.id" class="table-row"><span class="member-cell"><i>{{ member.avatar }}</i><span><strong>{{ member.name }}</strong><small>{{ member.email }}</small></span></span><span>{{ member.role }}</span><span>{{ member.joined }}</span><StatusBadge :label="member.status" /><button class="row-action" :aria-label="`管理成员 ${member.email}`" @click="editMember(member)"><AppIcon name="arrow" :size="15" /></button></div></div><p v-if="!record.members.length">该组织尚无成员记录。</p></section>
+      <section class="content-panel organization-members"><div class="section-heading"><div><h2>成员与角色</h2><p>从已注册游客中选择并绑定；待绑定记录本身不会赋予访问权。</p></div><button class="button secondary" @click="openGuestPicker"><AppIcon name="plus" :size="16" />从游客添加</button></div><div class="data-table member-table"><div class="table-head"><span>成员</span><span>角色</span><span>加入时间</span><span>状态</span><span /></div><div v-for="member in record.members" :key="member.id" class="table-row"><span class="member-cell"><i>{{ member.avatar }}</i><span><strong>{{ member.name }}</strong><small>{{ member.email }}</small></span></span><span>{{ member.role }}</span><span>{{ member.joined }}</span><StatusBadge :label="member.status" /><button class="row-action" :aria-label="`管理成员 ${member.email}`" @click="editMember(member)"><AppIcon name="arrow" :size="15" /></button></div></div><p v-if="!record.members.length">该组织尚无成员记录。</p></section>
     </template>
-    <Transition name="modal"><div v-if="showCreateMember" class="modal-backdrop" @click.self="showCreateMember = false"><section class="modal-card invite-modal"><header><div><span class="page-overline">NEW MEMBER</span><h2>添加待绑定成员</h2><p>仅保存业务成员记录，不创建 Login 账号或发送邮件。</p></div><button class="icon-button" aria-label="关闭弹窗" @click="showCreateMember = false"><AppIcon name="close" /></button></header><label class="form-field"><span>邮箱</span><input v-model.trim="memberEmail" type="email" placeholder="name@company.com" /></label><label class="form-field"><span>组织角色</span><select v-model="memberRole"><option>成员</option><option>开发者</option><option>财务查看者</option><option>组织管理员</option></select></label><footer><button class="button secondary" @click="showCreateMember = false">取消</button><button class="button primary" :disabled="saving || !memberEmail" @click="createMember">{{ saving ? '正在保存…' : '保存记录' }}</button></footer></section></div></Transition>
+    <Transition name="modal"><div v-if="showCreateMember" class="modal-backdrop" @click.self="showCreateMember = false"><section class="modal-card invite-modal guest-picker"><header><div><span class="page-overline">REGISTERED GUESTS</span><h2>从游客添加成员</h2><p>仅列出已注册且通过邮箱验证、尚未绑定组织的账号。</p></div><button class="icon-button" aria-label="关闭弹窗" @click="showCreateMember = false"><AppIcon name="close" /></button></header><label class="form-field"><span>查找游客（可选）</span><input v-model.trim="guestQuery" type="search" placeholder="按邮箱筛选，留空查看全部" @keyup.enter="loadGuests()" /></label><button class="button secondary" :disabled="guestsLoading" @click="loadGuests()">查询</button><p v-if="guestError" class="form-error" role="alert">{{ guestError }}</p><div class="guest-options" role="listbox" aria-label="已注册游客"><button v-for="guest in guestPage.users" :key="guest.id" type="button" class="guest-option" :class="{ selected: selectedGuest?.id === guest.id }" role="option" :aria-selected="selectedGuest?.id === guest.id" @click="selectGuest(guest)"><span><strong>{{ guest.email }}</strong><small>已验证 · {{ new Date(guest.createdAt).toLocaleDateString('zh-CN') }} 注册</small></span><AppIcon :name="selectedGuest?.id === guest.id ? 'check' : 'arrow'" :size="16" /></button><p v-if="!guestsLoading && !guestPage.users.length && !guestError" class="guest-empty">没有符合条件的游客。</p></div><button v-if="guestPage.nextCursor" class="button secondary" :disabled="guestsLoading" @click="loadGuests(true)">加载更多</button><p v-if="guestsLoading">正在读取游客…</p><label v-if="selectedGuest" class="form-field"><span>授予 {{ selectedGuest.email }} 的组织角色</span><select v-model="memberRole"><option>成员</option><option>开发者</option><option>财务查看者</option><option>组织管理员</option></select></label><p class="invite-note">绑定后立即生效，不自动授权应用或增加 API 额度。</p><footer><button class="button secondary" @click="showCreateMember = false">取消</button><button class="button primary" :disabled="saving || !selectedGuest" @click="createMember">{{ saving ? '正在绑定…' : '确认加入组织' }}</button></footer></section></div></Transition>
     <Transition name="modal"><div v-if="editingMember" class="modal-backdrop" @click.self="editingMember = null"><section class="modal-card invite-modal"><header><div><span class="page-overline">MEMBER MANAGEMENT</span><h2>管理成员</h2><p>{{ editingMember.email }} · {{ editingMember.centerUserId ? '已绑定 Login' : '未绑定 Login' }}</p></div><button class="icon-button" aria-label="关闭弹窗" @click="editingMember = null"><AppIcon name="close" /></button></header><label class="form-field"><span>组织角色</span><select v-model="memberDraft.role"><option>成员</option><option>开发者</option><option>财务查看者</option><option>组织管理员</option></select></label><label class="form-field"><span>状态</span><select v-model="memberDraft.status"><template v-if="editingMember.centerUserId"><option>正常</option><option>停用</option></template><template v-else><option>待邀请</option><option>未绑定</option><option>已取消</option></template></select></label><div class="invite-note">{{ editingMember.centerUserId ? '停用后，用户将失去此组织的 Hub 访问权限。' : '未绑定记录不会授予组织访问权限。' }}</div><footer><button class="button secondary" @click="editingMember = null">取消</button><button class="button primary" :disabled="saving" @click="saveMember">{{ saving ? '正在保存…' : '保存成员' }}</button></footer></section></div></Transition>
   </div>
 </template>

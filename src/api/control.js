@@ -65,5 +65,7 @@ export const controlApi = {
   getOrganizationApiCredit: (id) => request(`/ops/organizations/${encodeURIComponent(id)}/api-credit`),
   grantOrganizationApiCredit: (id, payload) => request(`/ops/organizations/${encodeURIComponent(id)}/api-credit`, { method: "POST", body: JSON.stringify(payload) }),
   createManagedMember: (organizationId, payload) => request(`/ops/organizations/${encodeURIComponent(organizationId)}/members`, { method: "POST", body: JSON.stringify(payload) }),
+  listGuests: (params = {}) => request(`/ops/guests?${new URLSearchParams(params)}`),
+  bindManagedMember: (organizationId, payload) => request(`/ops/organizations/${encodeURIComponent(organizationId)}/members/bind`, { method: "POST", body: JSON.stringify(payload) }),
   updateManagedMember: (organizationId, memberId, payload) => request(`/ops/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(memberId)}`, { method: "PATCH", body: JSON.stringify(payload) }),
 };

@@ -14,7 +14,12 @@ const request = async (path, options = {}) => {
   }
 
   const body = response.status === 204 ? null : await response.json().catch(() => null);
-  if (!response.ok) throw new Error(body?.error?.message || `Control API ${response.status}`);
+  if (!response.ok) {
+    const error = new Error(body?.error?.message || `Control API ${response.status}`);
+    error.code = body?.error?.code;
+    error.status = response.status;
+    throw error;
+  }
   return body;
 };
 

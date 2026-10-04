@@ -7,6 +7,7 @@ import TopBar from "./components/TopBar.vue";
 import { currentPath, currentSearch, navigate } from "./router";
 import ApiView from "./views/ApiView.vue";
 import ExperienceView from "./views/ExperienceView.vue";
+import GuestHubView from "./views/GuestHubView.vue";
 import MarketView from "./views/MarketView.vue";
 import NotFoundView from "./views/NotFoundView.vue";
 import OrganizationDetailView from "./views/OrganizationDetailView.vue";
@@ -23,6 +24,7 @@ const logoutUrl = new URL("/logout", loginUrl).toString();
 const context = ref(null);
 const loading = ref(true);
 const error = ref("");
+const guestMode = ref(false);
 const sidebarOpen = ref(false);
 const toast = ref("");
 let toastTimer;
@@ -56,12 +58,17 @@ const loadContext = async () => {
   context.value = null;
   loading.value = true;
   error.value = "";
+  guestMode.value = false;
   try {
     context.value = await getCenterContext();
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : "Center Context 加载失败";
+    if (cause?.status === 403 && cause?.code === "center_user_not_found") {
+      guestMode.value = true;
+    } else {
+      error.value = cause instanceof Error ? cause.message : "Center Context 加载失败";
+    }
   } finally {
-    loading.value = context.value === null && !error.value;
+    loading.value = context.value === null && !error.value && !guestMode.value;
   }
 };
 
@@ -111,15 +118,7 @@ onMounted(loadContext);
     </div>
   </div>
 
-  <div v-else-if="!activeOrganization" class="context-state error-state">
-    <div class="state-icon"><AppIcon name="warning" :size="28" /></div>
-    <h1>暂无可访问的组织</h1>
-    <p>当前账号尚未绑定有效组织，或所有组织成员关系已停用。业务页面不会开放。</p>
-    <div class="state-actions">
-      <button class="button primary" @click="loadContext">重新检查</button>
-      <a class="button secondary" :href="logoutUrl">退出登录</a>
-    </div>
-  </div>
+  <GuestHubView v-else-if="guestMode || !activeOrganization" :path="currentPath" :logout-url="logoutUrl" @retry-context="loadContext" />
 
   <div v-else class="hub-shell">
     <SideNav :can-manage-apps="canManageApps" :can-manage-models="canManageModels" :can-manage-organizations="canManageOrganizations" :open="sidebarOpen" @close="sidebarOpen = false" />

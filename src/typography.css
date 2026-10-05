@@ -5,6 +5,7 @@ body { font-family: var(--font-ui); font-size: 14px; line-height: 1.65; }
 button, input, select, textarea { font-family: inherit; }
 h1, h2, h3, h4 { text-wrap: balance; line-break: strict; }
 p { text-wrap: pretty; line-break: strict; }
+.keep-phrase { white-space: nowrap; }
 .overview-heading h1, .page-header h1, .welcome-band h1 { font-size: clamp(28px, 2.6vw, 36px); line-height: 1.35; letter-spacing: -.02em; font-weight: 620; }
 .overview-heading p, .page-header p, .welcome-band p { font-size: 15px; line-height: 1.8; max-width: 46em; }
 .overview-heading-actions { flex-wrap: wrap; }
@@ -29,6 +30,9 @@ p { text-wrap: pretty; line-break: strict; }
 .overview-activity-empty p { font-size: 13px; line-height: 1.75; }
 .form-field > span, .field-label, .form-field label { font-size: 13px; }
 .form-field input, .form-field select { font-size: 14px; }
+.model-admin-toolbar p, .model-admin-help { font-size: 13px; line-height: 1.7; }
+.model-admin-list .model-admin-name small { color: var(--muted-strong); font-size: 12px; line-height: 1.55; }
+.model-admin-list .model-admin-state { font-size: 12px; }
 code, pre, kbd, samp, .candidate-version-form textarea { letter-spacing: normal; font-variant-ligatures: none; }
 time, .metric-value, .stat-value { font-variant-numeric: tabular-nums; }
 @media (max-width: 1380px) and (min-width: 851px) {

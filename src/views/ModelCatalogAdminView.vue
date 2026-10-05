@@ -100,7 +100,7 @@ onMounted(load);
         <span class="page-overline internal-overline">MODEL PUBLICATION</span>
         <h1>{{ isDetail ? (isNew ? "新建模型草稿" : draft?.name || "模型配置") : "模型上架" }}</h1>
         <p v-if="isDetail">模型 ID 必须与 new-api 一致；公开资料、价格和在线体验在此配置。</p>
-        <p v-else>同一上架状态控制 WWW 与 Hub 展示；只展示网关当前列出的模型。公开报价不代表最终结算价格。</p>
+        <p v-else>管理列表包含草稿与未列出记录；<span class="keep-phrase">WWW 与 Hub</span> 仅公开已上架且网关列出的模型。公开报价不代表最终结算价格。</p>
       </div>
       <button v-if="isDetail && draft" class="button primary" type="button" :disabled="saving || !canSave" @click="save">{{ saving ? "正在保存…" : "保存模型资料" }}</button>
       <button v-else-if="!isDetail" class="button primary" type="button" @click="navigate('/ops/models/new')"><AppIcon name="plus" :size="17" />新建草稿</button>

@@ -108,7 +108,7 @@ onUnmounted(() => window.clearTimeout(pollTimer));
 <template>
   <section class="content-panel model-experience-panel">
     <div class="section-heading"><div><h2>模型在线体验</h2><p>{{ models.find((model) => model.id === modelId)?.name || modelId }} · 每次提交都会使用当前组织的真实 API 额度。</p></div><StatusBadge :label="modelAvailable && usage?.enabled && usage.remaining > 0 && !modelsError && !usageError ? '可调用' : '待核验'" /></div>
-    <div class="model-experience-balance"><span>组织 API 余额</span><strong>{{ usage && !usageError ? `$${usage.remaining.toFixed(2)}` : '暂不可用' }}</strong><button class="text-button" @click="refresh">刷新状态</button></div>
+    <div class="model-experience-balance"><span>组织 API 余额</span><strong>{{ usage && !usageError ? `$${usage.remaining.toFixed(4)}` : '暂不可用' }}</strong><button class="text-button" @click="refresh">刷新状态</button></div>
     <div v-if="modelsError || usageError" class="ops-note"><AppIcon name="warning" :size="18" /><div><strong>暂时无法发起体验</strong><p>{{ modelsError || usageError }}</p></div></div>
     <div class="model-experience-layout">
       <div class="model-experience-form">
@@ -128,7 +128,7 @@ onUnmounted(() => window.clearTimeout(pollTimer));
           <div v-if="selectedRun.status === 'completed'" class="model-experience-answer">{{ selectedRun.response }}</div>
           <div v-else-if="selectedRun.status === 'submitting'" class="model-experience-pending"><div class="loading-ring" /><span>模型正在生成；离开页面后可从体验记录恢复。</span></div>
           <div v-else class="model-experience-failure"><AppIcon name="warning" :size="20" /><span>{{ errorLabel(selectedRun.errorCode) }}</span></div>
-          <div class="model-experience-meta"><span>提交 {{ formatTime(selectedRun.createdAt) }}</span><span v-if="selectedRun.status === 'completed'">实际用量 {{ selectedRun.totalTokens }} tokens（输入 {{ selectedRun.promptTokens }} / 输出 {{ selectedRun.outputTokens }}）</span><span>结果保留至 {{ formatTime(selectedRun.expiresAt) }}</span></div>
+          <div class="model-experience-meta"><span>提交 {{ formatTime(selectedRun.createdAt) }}</span><span v-if="selectedRun.status === 'completed'">实际用量 {{ selectedRun.totalTokens }} tokens（输入 {{ selectedRun.promptTokens }} / 输出 {{ selectedRun.outputTokens }}）</span><span v-if="selectedRun.status === 'completed'" :class="{ 'model-experience-charge': selectedRun.billedQuota != null }">{{ selectedRun.billedQuota != null ? `本次扣除 $${(selectedRun.billedQuota / 500000).toFixed(6)}` : '本次扣额未记录' }}</span><span>结果保留至 {{ formatTime(selectedRun.expiresAt) }}</span></div>
         </template>
         <div v-else class="model-experience-empty"><AppIcon name="chat" :size="28" /><strong>等待你的第一次真实体验</strong><span>提交后，这里会显示模型原始回复和实际 token 用量。</span></div>
       </div>

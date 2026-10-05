@@ -1083,6 +1083,7 @@ button { letter-spacing: .005em; }
 .model-experience-empty svg { color: var(--green); }
 .model-experience-empty strong { color: var(--paper); font-size: 14px; }
 .model-experience-meta { display: flex; flex-wrap: wrap; gap: 7px 20px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+.model-experience-meta .model-experience-charge { color: var(--paper); font-weight: 650; font-variant-numeric: tabular-nums; }
 .model-experience-history { margin-top: 24px; }
 .model-experience-history .section-heading h3 { margin: 0; font-size: 15px; }
 .model-experience-run-list { display: grid; gap: 6px; }

@@ -728,6 +728,11 @@ select:focus-visible {
 .welcome-actions { gap: 10px; }
 
 .metric-grid { gap: 16px; }.metric-grid.compact { margin-bottom: 32px; }
+.usage-summary { width: 100%; min-width: 0; }
+.usage-summary .metric-grid.compact { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); margin-bottom: 0; }
+.usage-summary .metric-card { min-width: 0; flex-direction: column; gap: 14px; }
+.usage-summary .metric-card > div:last-child { width: 100%; }
+.usage-summary .metric-card strong { overflow-wrap: anywhere; font-size: clamp(18px, 6vw, 28px); font-variant-numeric: tabular-nums; }
 .metric-card { min-height: 126px; padding: 22px; gap: 18px; background: rgba(9, 13, 10, 0.72); }
 .metric-icon { width: 46px; height: 46px; border-radius: 8px; }
 .metric-icon.blue, .ability-icon.blue { background: rgba(146, 199, 169, 0.11); color: var(--blue); }

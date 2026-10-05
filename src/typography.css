@@ -1,0 +1,44 @@
+/* Center typography. Self-hosted OFL font; /licenses/noto-sans-sc.txt.
+   Keep the Station-like shell and existing color tokens unchanged. */
+:root { --font-ui: "Noto Sans SC Variable", system-ui, sans-serif; font-synthesis: none; }
+body { font-family: var(--font-ui); font-size: 14px; line-height: 1.65; }
+button, input, select, textarea { font-family: inherit; }
+h1, h2, h3, h4 { text-wrap: balance; line-break: strict; }
+p { text-wrap: pretty; line-break: strict; }
+.overview-heading h1, .page-header h1, .welcome-band h1 { font-size: clamp(28px, 2.6vw, 36px); line-height: 1.35; letter-spacing: -.02em; font-weight: 620; }
+.overview-heading p, .page-header p, .welcome-band p { font-size: 15px; line-height: 1.8; max-width: 46em; }
+.overview-heading-actions { flex-wrap: wrap; }
+.overview-heading-actions .button, .overview-journey-copy .button, .button, .text-button { font-size: 13px; line-height: 1.5; }
+.overview-heading-actions .button, .overview-journey-copy .button { min-height: 42px; }
+.hub-side .side-navigation button, .side-primary { font-size: 14px; }
+.hub-side .side-navigation button { min-height: 38px; height: auto; padding-block: 8px; }
+.hub-side .nav-section-label { font-size: 11px; letter-spacing: .06em; }
+.side-context-copy strong { font-size: 13px; }
+.side-context-copy small, .side-help, .side-popover.profile-popover > a { font-size: 12px; }
+.overview-rail-intro h2, .overview-section-heading h2 { font-size: 18px; line-height: 1.5; }
+.overview-rail-intro p, .overview-section-heading p { font-size: 13px; line-height: 1.75; }
+.overview-rail > button { gap: 9px; padding-inline: 14px; }
+.overview-rail > button strong { font-size: 14px; }
+.overview-rail > button small { font-size: 12px; line-height: 1.6; }
+.overview-journey-copy h3 { font-size: 25px; letter-spacing: -.015em; line-height: 1.45; }
+.overview-journey-copy p { font-size: 14px; line-height: 1.85; }
+.overview-journey-steps h4, .overview-journey-steps strong { font-size: 14px; }
+.overview-journey-steps b, .overview-journey-steps span { font-size: 12px; line-height: 1.7; }
+.overview-activity-panel h3 { font-size: 15px; }
+.overview-activity-state, .overview-activity-empty { font-size: 14px; }
+.overview-activity-empty p { font-size: 13px; line-height: 1.75; }
+.form-field > span, .field-label, .form-field label { font-size: 13px; }
+.form-field input, .form-field select { font-size: 14px; }
+code, pre, kbd, samp, .candidate-version-form textarea { letter-spacing: normal; font-variant-ligatures: none; }
+time, .metric-value, .stat-value { font-variant-numeric: tabular-nums; }
+@media (max-width: 1380px) and (min-width: 851px) {
+  .overview-rail { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .overview-rail-intro { grid-column: 1 / -1; border-bottom: 1px solid var(--line); }
+}
+@media (max-width: 620px) {
+  .overview-rail > button { flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 16px 12px; }
+  .overview-rail > button > span:nth-child(2) { flex: none; }
+  .overview-section-heading { align-items: flex-start; flex-wrap: wrap; }
+  .overview-heading-actions .button { padding-inline: 12px; }
+  .form-field input, .form-field select, .form-field textarea { font-size: 16px; }
+}

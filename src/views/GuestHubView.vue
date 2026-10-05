@@ -42,7 +42,7 @@ onMounted(loadCatalog);
   <div class="guest-shell">
     <header class="guest-header">
       <button class="guest-brand" type="button" @click="navigate('/')">
-        <img src="/brand/verdantflare-logo.svg" alt="" />
+        <img src="/brand/verdantflare-logo.png" alt="" />
         <strong>VerdantFlare <span>Hub</span></strong>
       </button>
       <nav class="guest-nav" aria-label="游客导航">

@@ -60,7 +60,7 @@ onBeforeUnmount(() => {
 <template>
   <aside class="sidebar hub-side">
     <button class="brand-block" aria-label="前往 Hub 工作台" @click="select('/')">
-      <img src="/brand/verdantflare-logo.svg" alt="" />
+      <img src="/brand/verdantflare-logo.png" alt="" />
       <span class="brand-copy"><strong>VerdantFlare</strong><small>HUB</small></span>
     </button>
     <button class="side-primary" title="开始在线体验" @click="select('/experience')">

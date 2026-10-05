@@ -99,7 +99,7 @@ onMounted(loadContext);
 
 <template>
   <div v-if="loading" class="context-state loading-state">
-    <img src="/brand/verdantflare-logo.svg" alt="VerdantFlare" />
+    <img src="/brand/verdantflare-logo.png" alt="VerdantFlare" />
     <div class="loading-ring" />
     <strong>正在建立安全会话</strong>
     <span>验证登录状态并加载组织权益…</span>

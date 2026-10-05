@@ -5,12 +5,12 @@ import AppIcon from "../components/AppIcon.vue";
 import MetricCard from "../components/MetricCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { navigate } from "../router";
+import { formatQuotaUSD, formatUsagePercent } from "../utils/quota";
 
 const props = defineProps({ path: String, organization: Object });
 const emit = defineEmits(["toast", "context-change"]);
 const members = ref([]);
 const billing = ref(null);
-const billingOverview = ref(null);
 const billingLoading = ref(false);
 const billingError = ref("");
 const membersError = ref("");
@@ -27,10 +27,9 @@ const canManageMembers = computed(() => props.organization?.roles?.includes("org
 const titles = {
   organization: ["ORGANIZATION", "组织信息", "管理组织资料、区域与业务标识。"],
   members: ["MEMBERS & ROLES", "成员与角色", "邀请成员并分配组织内的最小业务权限。"],
-  billing: ["PLAN & BILLING", "套餐与账单", "查看套餐权益、预算和账单摘要。"],
+  billing: ["PLAN & BILLING", "套餐与账单", "查看套餐、真实额度、赠送记录与付款状态。"],
 };
 const pageTitle = computed(() => titles[section.value] || titles.organization);
-const occupiedSeats = computed(() => members.value.filter((member) => member.centerUserId && member.status === "正常").length);
 
 watch(() => props.organization, (organization) => {
   if (!organization) return;
@@ -55,23 +54,20 @@ const loadBilling = async () => {
   billingLoading.value = true;
   billingError.value = "";
   try {
-    const [summary, overview, organizationMembers] = await Promise.all([
-      controlApi.getBilling(), controlApi.getOverview(), controlApi.listMembers(),
-    ]);
-    billing.value = summary;
-    billingOverview.value = overview;
-    members.value = organizationMembers || [];
+    billing.value = await controlApi.getBilling();
   } catch (cause) {
     billingError.value = cause instanceof Error ? cause.message : "账单摘要加载失败";
   } finally {
     billingLoading.value = false;
   }
 };
-const formatDate = (value) => value ? new Date(value).toLocaleDateString("zh-CN") : "—";
+const formatDate = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("zh-CN");
+};
 watch([section, () => props.organization?.organizationId], ([value]) => {
   members.value = [];
   billing.value = null;
-  billingOverview.value = null;
   if (value === "members" && props.organization) loadMembers();
   if (value === "billing" && props.organization) loadBilling();
 }, { immediate: true });
@@ -144,12 +140,12 @@ const saveMember = async () => {
     </template>
 
     <template v-else-if="section === 'billing'">
-      <section v-if="billingError" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>真实账单暂不可用</strong><p>{{ billingError }}</p></div><button class="button secondary" @click="loadBilling">重新加载</button></section>
+      <section v-if="billingError" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>额度与发放记录暂不可用</strong><p>{{ billingError }}</p></div><button class="button secondary" @click="loadBilling">重新加载</button></section>
       <p v-if="billingLoading">正在读取套餐与账单…</p>
       <template v-if="billing && !billingError">
-        <section class="plan-hero"><div><span class="page-overline">CURRENT PLAN</span><h2>{{ billing.plan }}</h2><p>当前组织的套餐及已记录用量。</p><div class="plan-tags"><span>{{ billing.memberLimit }} 个成员席位</span><span>{{ billingOverview?.availableApps ?? 0 }} 个可用应用</span><span>{{ billing.apiBudget.toLocaleString() }} API 点 / 月</span></div></div><aside><span>当前周期</span><strong>{{ formatDate(billing.cycleStart) }} — {{ formatDate(billing.cycleEnd) }}</strong><small>续期与付款状态以实际账单为准</small></aside></section>
-        <section class="metric-grid compact"><MetricCard label="API 本月使用" :value="`${billing.apiUsed.toLocaleString()} 点`" :detail="`预算的 ${billing.apiBudget ? (billing.apiUsed / billing.apiBudget * 100).toFixed(1) : 0}%`" icon="usage" tone="mint" /><MetricCard label="体验本月使用" :value="`${billing.experienceUsed.toLocaleString()} 点`" :detail="`剩余 ${organization.experienceCredits.toLocaleString()} 点`" icon="experience" tone="blue" /><MetricCard label="已绑定成员席位" :value="`${occupiedSeats} / ${billing.memberLimit}`" :detail="`${Math.max(0, billing.memberLimit - occupiedSeats)} 个席位可用`" icon="members" tone="violet" /></section>
-        <div class="billing-columns"><section><div class="section-heading"><div><h2>账单摘要</h2><p>来自 Control Service 的账单记录</p></div></div><div class="data-table invoice-table"><div class="table-head"><span>账期</span><span>账单号</span><span>金额</span><span>状态</span></div><div v-for="invoice in billing.invoices || []" :key="invoice.id" class="table-row"><strong>{{ invoice.period }}</strong><code>{{ invoice.id }}</code><span>{{ invoice.amount }}</span><StatusBadge :label="invoice.status" /></div></div><p v-if="!billing.invoices?.length">暂无账单记录。</p></section><section class="content-panel billing-contact"><h2>账单联系方式</h2><p>组织资料中保存的账单联系邮箱。</p><div class="contact-row"><span>财</span><div><strong>账单联系人</strong><small>{{ organization.billingEmail || '尚未填写' }}</small></div></div><button class="button secondary" @click="navigate('/settings/organization')">更新联系方式</button></section></div>
+        <section class="plan-hero"><div><span class="page-overline">CURRENT PLAN</span><h2>{{ billing.plan || '未配置套餐' }}</h2><p>套餐名称来自组织资料；额度与用量来自模型网关，不代表已付款。</p><div class="plan-tags"><span>API 额度按实际消耗结算</span><span>管理员赠送额度单独留痕</span></div></div><aside><span>组织 API 余额</span><strong>{{ formatQuotaUSD(billing.usage.remainingQuota) }}</strong><small>使用量与在线体验显示同一网关余额</small><button class="button secondary" :disabled="billingLoading" @click="loadBilling">刷新记录</button></aside></section>
+        <section class="metric-grid compact"><MetricCard label="累计分配" :value="formatQuotaUSD(billing.usage.budgetQuota)" detail="网关累计额度" icon="usage" tone="mint" /><MetricCard label="已使用" :value="formatQuotaUSD(billing.usage.usedQuota)" :detail="formatUsagePercent(billing.usage.usedQuota, billing.usage.budgetQuota)" icon="tasks" tone="blue" /><MetricCard label="剩余" :value="formatQuotaUSD(billing.usage.remainingQuota)" detail="当前可用额度" icon="check" tone="violet" /></section>
+        <div class="billing-columns"><section class="content-panel"><div class="section-heading"><div><h2>额度账单</h2><p>每次管理员赠送额度（包括首次赠送）都有独立记录；这不是客户付款或税务发票。</p></div></div><div class="data-table invoice-table credit-grant-table"><div class="table-head"><span>发放时间</span><span>类型</span><span>金额</span><span>状态</span></div><div v-for="grant in billing.creditGrants" :key="grant.id" class="table-row"><strong>{{ formatDate(grant.createdAt) }}</strong><span>管理员赠送额度<small>记录号 {{ grant.id }}</small></span><span>{{ formatQuotaUSD(grant.amountCents * 5000) }}</span><StatusBadge label="已到账" /></div></div><p v-if="!billing.creditGrants.length" class="billing-empty">暂无额度账单记录。</p></section><section class="content-panel billing-contact"><h2>付费账单与发票</h2><p>当前未接入收款与开票系统；赠送额度无需付款，也不会生成发票。</p><div class="contact-row"><span>财</span><div><strong>账单联系邮箱</strong><small>{{ organization.billingEmail || '尚未填写' }}</small></div></div><button class="button secondary" @click="navigate('/settings/organization')">更新联系方式</button></section></div>
       </template>
     </template>
 

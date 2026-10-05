@@ -5,6 +5,7 @@ import AppIcon from "../components/AppIcon.vue";
 import MetricCard from "../components/MetricCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { navigate } from "../router";
+import { formatQuotaUSD, formatUsagePercent } from "../utils/quota";
 
 const props = defineProps({ path: String, query: { type: String, default: "" }, organization: Object });
 const emit = defineEmits(["toast"]);
@@ -251,8 +252,8 @@ const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? 
       <section v-if="usageError" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>真实用量暂不可用</strong><p>{{ usageError }}</p></div><button class="button secondary" @click="loadUsage">重新加载</button></section>
       <p v-if="usageLoading">正在读取用量…</p>
       <template v-if="usage && !usageError">
-        <section class="budget-band"><div><span>组织累计 API 额度</span><strong>${{ usage.used.toFixed(2) }} <small>/ ${{ usage.budget.toFixed(2) }}</small></strong><p>剩余 ${{ usage.remaining.toFixed(2) }} · 已使用 {{ usage.percentage.toFixed(1) }}%</p></div><div class="budget-ring"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="32" /><circle class="progress" cx="40" cy="40" r="32" :style="{ strokeDashoffset: 201 * (1 - Math.min(100, Math.max(0, usage.percentage)) / 100) }" /></svg><strong>{{ usage.percentage.toFixed(1) }}%</strong></div></section>
-        <div class="usage-layout"><section class="content-panel"><div class="section-heading"><div><h2>用量摘要</h2><p>网关组织累计总量；逐日和按模型明细尚未接入。</p></div></div><div class="metric-grid compact"><MetricCard label="累计分配" :value="`$${usage.budget.toFixed(2)}`" icon="usage" tone="mint" /><MetricCard label="已使用" :value="`$${usage.used.toFixed(2)}`" icon="tasks" tone="blue" /><MetricCard label="剩余" :value="`$${usage.remaining.toFixed(2)}`" icon="check" tone="violet" /></div></section></div>
+        <section class="budget-band"><div><span>组织累计 API 额度</span><strong>{{ formatQuotaUSD(usage.usedQuota) }} <small>/ {{ formatQuotaUSD(usage.budgetQuota) }}</small></strong><p>剩余 {{ formatQuotaUSD(usage.remainingQuota) }} · 已使用 {{ formatUsagePercent(usage.usedQuota, usage.budgetQuota) }}</p></div><div class="budget-ring"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="32" /><circle class="progress" cx="40" cy="40" r="32" :style="{ strokeDashoffset: 201 * (1 - Math.min(100, Math.max(0, usage.percentage)) / 100) }" /></svg><strong>{{ formatUsagePercent(usage.usedQuota, usage.budgetQuota) }}</strong></div></section>
+        <div class="usage-layout"><section class="content-panel"><div class="section-heading"><div><h2>用量摘要</h2><p>网关组织累计总量；逐日和按模型明细尚未接入。</p></div></div><div class="metric-grid compact"><MetricCard label="累计分配" :value="formatQuotaUSD(usage.budgetQuota)" icon="usage" tone="mint" /><MetricCard label="已使用" :value="formatQuotaUSD(usage.usedQuota)" icon="tasks" tone="blue" /><MetricCard label="剩余" :value="formatQuotaUSD(usage.remainingQuota)" icon="check" tone="violet" /></div></section></div>
       </template>
     </template>
 

@@ -42,7 +42,7 @@ const route = computed(() => {
   if (path === "/market" || path.startsWith("/market/apps/")) return { component: MarketView, area: "market" };
   if (path.startsWith("/experience/sessions/")) return { component: SessionDetailView, area: "experience" };
   if (path === "/experience") return { component: ExperienceView, area: "experience" };
-  if (path === "/ops/models" && canManageModels.value) return { component: ModelCatalogAdminView, area: "operations" };
+  if ((path === "/ops/models" || path.startsWith("/ops/models/")) && canManageModels.value) return { component: ModelCatalogAdminView, area: "operations" };
   if (path.startsWith("/api/")) return { component: ApiView, area: "api" };
   if (path.startsWith("/settings/")) return { component: SettingsView, area: "settings" };
   if (path.startsWith("/ops/apps/") && path.endsWith("/releases") && canManageApps.value) return { component: ReleaseDetailView, area: "operations" };

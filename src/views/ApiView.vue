@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
+import CatalogCard from "../components/CatalogCard.vue";
 import MetricCard from "../components/MetricCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { navigate } from "../router";
@@ -54,6 +55,15 @@ const filteredModels = computed(() => {
   const keyword = modelSearch.value.trim().toLowerCase();
   return models.value.filter((model) => !keyword || [model.name, model.provider, model.type].some((value) => value.toLowerCase().includes(keyword)));
 });
+const modelCardTags = (model) => [
+  model.context && `上下文 ${model.context}`,
+  model.inputPrice && `输入 ${model.inputPrice} ${model.priceUnit || ""}`.trim(),
+  model.outputPrice && `输出 ${model.outputPrice} ${model.priceUnit || ""}`.trim(),
+].filter(Boolean);
+const modelCardActions = (model) => [
+  { label: "调用示例", to: `/api/playground?model=${encodeURIComponent(model.id)}` },
+  { label: model.experienceMode === "chat" ? "在线体验" : "查看体验入口", to: `/experience?model=${encodeURIComponent(model.id)}`, primary: model.experienceMode === "chat" },
+];
 const unavailableRequestedModel = computed(() =>
   !modelsLoading.value && requestedModelId && !models.value.some((model) => model.id === requestedModelId)
     ? requestedModelId
@@ -121,7 +131,7 @@ watch(() => props.organization?.organizationId, () => {
 });
 
 const titleMap = {
-  models: ["MODEL MARKET", "模型市场", "展示运营已上架且当前网关 Token 可见的模型；最终调用权限与结算以网关为准。"],
+  models: ["MODEL MARKET", "模型市场", "展示运营已上架且当前网关可见的模型；目录不代表健康测试通过或当前组织拥有调用权限。"],
   keys: ["API CREDENTIALS", "API Keys", "创建限定模型的组织级网关 Key，按实际分配额度调用。"],
   playground: ["API PLAYGROUND", "调用示例", "选择已上架模型，复制示例并用自己的 API Key 调用。"],
   tasks: ["TASKS & LOGS", "任务与日志", "模型网关任务尚未接入；不展示初始化样例任务。"],
@@ -196,24 +206,18 @@ const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? 
   <div class="page api-page">
     <header class="page-header api-header">
       <div><span class="page-overline">{{ pageTitle[0] }}</span><h1>{{ pageTitle[1] }}</h1><p>{{ pageTitle[2] }}</p></div>
+      <button v-if="section === 'models'" class="button secondary" @click="navigate('/api/keys')">查看 Key 状态<AppIcon name="arrow" :size="16" /></button>
       <button v-if="section === 'keys' && canManageKeys" class="button primary" :disabled="modelsLoading || !models.length || !!modelsError" @click="openCreateKey"><AppIcon name="plus" :size="17" />创建 API Key</button>
       <button v-if="section === 'tasks'" class="button secondary" :disabled="tasksLoading" @click="loadTasks">刷新状态</button>
       <button v-if="section === 'usage'" class="button secondary" :disabled="usageLoading" @click="loadUsage">刷新用量</button>
     </header>
 
     <template v-if="section === 'models'">
-      <div class="catalog-banner"><div><span>MODEL CATALOG</span><h2>已上架模型</h2><p>模型 ID 已与网关目录核对；列出不等于完成健康测试或向当前组织发放调用 Token。</p></div><button class="button light" @click="navigate('/api/keys')">查看 Key 状态<AppIcon name="arrow" :size="16" /></button></div>
       <section v-if="modelsError" class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>模型市场加载失败</strong><p>{{ modelsError }}</p></div><button class="button secondary" @click="loadModels">重新加载</button></section>
       <div class="catalog-tools"><label class="search-field"><AppIcon name="search" :size="18" /><input v-model="modelSearch" type="search" placeholder="搜索模型或提供方" /></label><span>{{ modelsLoading ? '正在加载模型…' : `${filteredModels.length} 个目录模型` }}</span></div>
       <section v-if="unavailableRequestedModel" class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>模型不在当前目录</strong><p>模型 {{ unavailableRequestedModel }} 未由 Control 返回，请检查模型 ID 或稍后刷新。</p></div></section>
-      <section class="model-list">
-        <article v-for="model in filteredModels" :key="model.id" class="model-row" :class="{ 'is-targeted': model.id === requestedModelId }">
-          <div class="model-logo">{{ model.name.slice(0, 2).toUpperCase() }}</div>
-          <div class="model-title"><strong>{{ model.name }}</strong><span>{{ model.provider }} · {{ model.type }}</span></div>
-          <dl><div><dt>上下文</dt><dd>{{ model.context || '未公布' }}</dd></div><div><dt>网关目录</dt><dd>当前可见</dd></div><div><dt>展示报价</dt><dd>{{ model.inputPrice && model.outputPrice ? `输入 ${model.inputPrice} / 输出 ${model.outputPrice} ${model.priceUnit}（参考）` : '未公布' }}</dd></div></dl>
-          <StatusBadge label="已上架" />
-          <div class="model-row-actions"><button class="row-link" @click="navigate(`/api/playground?model=${encodeURIComponent(model.id)}`)">调用示例<AppIcon name="arrow" :size="15" /></button><button class="row-link" @click="navigate(`/experience?model=${encodeURIComponent(model.id)}`)">在线体验<AppIcon name="arrow" :size="15" /></button></div>
-        </article>
+      <section class="catalog-card-grid" aria-label="已上架模型">
+        <CatalogCard v-for="model in filteredModels" :key="model.id" :title="model.name" :meta="`${model.provider} · ${model.id}`" :description="model.type" icon="models" :tags="modelCardTags(model)" :status="model.experienceMode === 'chat' ? '可体验' : '体验待接入'" :status-tone="model.experienceMode === 'chat' ? 'positive' : 'neutral'" :actions="modelCardActions(model)" :highlighted="model.id === requestedModelId" />
       </section>
       <div v-if="!modelsLoading && !modelsError && !filteredModels.length" class="empty-state"><AppIcon name="search" :size="26" /><strong>暂无已上架模型</strong><span>请运营管理员核对网关模型，并在 Hub 模型上架页公开。</span></div>
     </template>

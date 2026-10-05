@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
+import CatalogCard from "../components/CatalogCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { navigate } from "../router";
 
@@ -23,7 +24,15 @@ const filteredApps = computed(() => {
     return categoryMatch && keywordMatch;
   });
 });
-const featuredApp = computed(() => filteredApps.value[0] || null);
+const appCardTags = (app) => [
+  app.category,
+  app.channel,
+  app.gpu || "资源待补充",
+].filter(Boolean);
+const appCardActions = (app) => [
+  { label: "体验状态", to: `/experience?app=${encodeURIComponent(app.id)}` },
+  { label: "查看详情", to: `/market/apps/${encodeURIComponent(app.id)}`, primary: true },
+];
 const loadApps = async () => {
   loading.value = true;
   loadError.value = "";
@@ -96,37 +105,10 @@ onMounted(loadApps);
       </div>
     </div>
 
-    <section v-if="featuredApp" class="market-showcase">
-      <div class="market-feature-image">
-        <div class="market-feature-symbol" aria-hidden="true"><AppIcon :name="featuredApp.icon || 'market'" :size="92" /></div>
-        <div class="market-feature-copy">
-          <h2>{{ featuredApp.name }}</h2>
-          <p>{{ featuredApp.summary }}</p>
-          <div><StatusBadge :label="featuredApp.entitled ? '已授权' : '未授权'" /><span><AppIcon name="usage" :size="15" />{{ featuredApp.gpu || '资源配置待补充' }}</span></div>
-          <button class="button secondary" @click="navigate(`/market/apps/${featuredApp.id}`)">查看详情</button>
-          <button class="button primary" @click="navigate(`/experience?app=${encodeURIComponent(featuredApp.id)}`)">查看体验入口</button>
-        </div>
-      </div>
-      <aside class="market-feature-detail">
-        <div class="featured-title"><span class="app-card-icon" :class="featuredApp.tone"><AppIcon :name="featuredApp.icon || 'market'" :size="26" /></span><div><h2>{{ featuredApp.name }}</h2><p>{{ featuredApp.category }}</p></div><StatusBadge :label="featuredApp.entitled ? '已授权' : '未授权'" /></div>
-        <p>{{ featuredApp.summary }}</p>
-        <dl><div><dt>权益状态</dt><dd>{{ featuredApp.entitled ? '已授权' : '未授权' }}</dd></div><div><dt>发布通道</dt><dd>{{ featuredApp.channel }}</dd></div><div><dt>推荐资源</dt><dd>{{ featuredApp.gpu || '待补充' }}</dd></div></dl>
-        <div class="studio-handoff"><AppIcon name="organization" :size="18" /><span><strong>运行状态待核验</strong><small>Hub 记录不代表应用已在 Station 安装或可用。</small></span></div>
-        <button class="button primary full" @click="navigate(`/market/apps/${featuredApp.id}`)"><AppIcon name="arrow" :size="17" />查看应用详情</button>
-      </aside>
-    </section>
-
     <section class="market-catalog">
-      <div class="section-heading"><div><h2>应用目录</h2><p>{{ filteredApps.length }} 个应用 · 其中 {{ filteredApps.filter((app) => app.entitled).length }} 个已授权 · 权益版本 v{{ organization.entitlementVersion }}</p></div><span class="market-sort">综合排序<AppIcon name="chevron" :size="14" /></span></div>
-      <div class="market-app-list">
-        <button v-for="app in filteredApps" :key="app.id" @click="navigate(`/market/apps/${app.id}`)">
-          <span class="app-card-icon" :class="app.tone"><AppIcon :name="app.icon" :size="22" /></span>
-          <span class="market-app-copy"><strong>{{ app.name }}</strong><small>{{ app.summary }}</small></span>
-          <StatusBadge :label="app.entitled ? '已授权' : '未授权'" />
-          <span class="market-compat"><AppIcon name="models" :size="15" />{{ app.channel }}</span>
-          <span class="market-compat"><AppIcon name="usage" :size="15" />{{ app.gpu || '资源待补充' }}</span>
-          <AppIcon name="chevron" :size="17" />
-        </button>
+      <div class="section-heading"><div><h2>应用目录</h2><p>{{ filteredApps.length }} 个应用 · 其中 {{ filteredApps.filter((app) => app.entitled).length }} 个已授权 · 权益版本 v{{ organization.entitlementVersion }}</p></div></div>
+      <div class="catalog-card-grid">
+        <CatalogCard v-for="app in filteredApps" :key="app.id" :title="app.name" :meta="`${app.developer || app.category} · v${app.version}`" :description="app.summary" :icon="app.icon || 'market'" :icon-url="app.publicIconUrl" :tags="appCardTags(app)" :status="app.entitled ? '已授权' : '未授权'" :status-tone="app.entitled ? 'positive' : 'neutral'" :actions="appCardActions(app)" />
       </div>
     </section>
     <div v-if="filteredApps.length === 0" class="empty-state"><AppIcon name="search" :size="28" /><strong>没有匹配的应用</strong><span>换个关键词或清除分类筛选。</span></div>

@@ -3,7 +3,6 @@ import { computed, onMounted, ref } from "vue";
 import { controlApi, getCenterContext } from "./api/control";
 import AppIcon from "./components/AppIcon.vue";
 import SideNav from "./components/SideNav.vue";
-import TopBar from "./components/TopBar.vue";
 import { currentPath, currentSearch, navigate } from "./router";
 import ApiView from "./views/ApiView.vue";
 import ExperienceView from "./views/ExperienceView.vue";
@@ -25,7 +24,6 @@ const context = ref(null);
 const loading = ref(true);
 const error = ref("");
 const guestMode = ref(false);
-const sidebarOpen = ref(false);
 const toast = ref("");
 let toastTimer;
 
@@ -121,12 +119,13 @@ onMounted(loadContext);
   <GuestHubView v-else-if="guestMode || !activeOrganization" :path="currentPath" :logout-url="logoutUrl" @retry-context="loadContext" />
 
   <div v-else class="hub-shell">
-    <SideNav :can-manage-apps="canManageApps" :can-manage-models="canManageModels" :can-manage-organizations="canManageOrganizations" :open="sidebarOpen" @close="sidebarOpen = false" />
-    <TopBar
+    <SideNav
+      :can-manage-apps="canManageApps"
+      :can-manage-models="canManageModels"
+      :can-manage-organizations="canManageOrganizations"
       :context="context"
       :active-organization="activeOrganization"
       @organization-change="changeOrganization"
-      @menu="sidebarOpen = true"
     />
     <main class="hub-main">
       <Transition name="view" mode="out-in">

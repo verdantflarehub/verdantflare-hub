@@ -78,11 +78,11 @@ const refreshContext = async () => {
   }
 };
 
-const changeOrganization = async (organizationId) => {
+const changeOrganization = async (organizationId, stayOnPage = false) => {
   try {
     context.value = await controlApi.setActiveOrganization(organizationId);
     showToast("组织已切换，目录与权限已刷新");
-    navigate("/");
+    if (!stayOnPage) navigate("/");
   } catch {
     showToast("组织切换失败，请稍后重试");
   }
@@ -135,9 +135,11 @@ onMounted(loadContext);
           :path="currentPath"
           :query="currentSearch"
           :organization="activeOrganization"
+          :organizations="context.organizations"
           :internal="canManageApps || canManageOrganizations"
           @toast="showToast"
           @context-change="refreshContext"
+          @switch-organization="(id) => changeOrganization(id, true)"
         />
       </Transition>
     </main>

@@ -64,7 +64,7 @@ onMounted(() => {
       <section v-if="!selectedModel" class="empty-state"><AppIcon name="warning" :size="28" /><strong>模型不在当前目录</strong><span>请从模型市场重新选择。</span><button class="button secondary" @click="navigate('/api/models')">返回模型市场</button></section>
       <template v-else>
         <div class="content-panel"><div class="section-heading"><div><h2>{{ selectedModel.name }}</h2><p>{{ selectedModel.provider }} · {{ selectedModel.type }} · {{ selectedModel.id }}</p></div><StatusBadge :label="selectedModel.experienceMode === 'chat' ? '体验已接入' : '体验待接入'" /></div></div>
-        <ModelExperiencePanel v-if="selectedModel.experienceMode === 'chat'" :key="`${props.organization?.organizationId}:${modelId}`" :organization-id="props.organization?.organizationId" :model-id="modelId" />
+        <ModelExperiencePanel v-if="selectedModel.experienceMode === 'chat'" :key="`${props.organization?.organizationId}:${modelId}`" :organization-id="props.organization?.organizationId" :model-id="modelId" :can-create-key="props.organization?.roles?.includes('organization_admin')" />
         <section v-else class="safety-note"><AppIcon name="warning" :size="19" /><div><strong>该模型尚未开放 Hub 在线体验</strong><p>目录上架与付费体验分开管理。可先查看 API 调用示例；Hub 不会切换到其他模型。</p><button class="button secondary" @click="navigate(`/api/playground?model=${encodeURIComponent(modelId)}`)">查看调用示例</button></div></section>
       </template>
     </template>

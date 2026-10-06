@@ -4,10 +4,14 @@ import { controlApi } from "../api/control";
 import AppIcon from "./AppIcon.vue";
 import StatusBadge from "./StatusBadge.vue";
 import { formatQuotaUSD } from "../utils/quota";
+import { navigate } from "../router";
 
-const props = defineProps({ organizationId: String, modelId: { type: String, required: true } });
+const props = defineProps({ organizationId: String, modelId: { type: String, required: true }, canCreateKey: Boolean });
 const models = ref([]);
 const modelsError = ref("");
+const keys = ref([]);
+const keysError = ref("");
+const selectedKeyId = ref("");
 const usage = ref(null);
 const usageError = ref("");
 const runs = ref([]);
@@ -21,12 +25,14 @@ const pendingRequest = ref(null);
 let pollTimer;
 
 const modelAvailable = computed(() => models.value.some((model) => model.id === props.modelId && model.experienceMode === "chat"));
+const availableKeys = computed(() => keys.value.filter((key) => key.source === "gateway" && key.status === "active" && key.scopes?.includes(props.modelId)));
+const selectedKey = computed(() => availableKeys.value.find((key) => key.id === selectedKeyId.value));
 const selectedRun = computed(() => runs.value.find((run) => run.id === selectedRunId.value) || null);
-const canSubmit = computed(() => modelAvailable.value && !modelsError.value && !usageError.value
+const canSubmit = computed(() => modelAvailable.value && selectedKey.value && !modelsError.value && !usageError.value && !keysError.value
   && usage.value?.enabled && usage.value.remainingQuota > 0 && prompt.value.trim().length > 0 && prompt.value.trim().length <= 2000
   && chargeConfirmed.value && !submitting.value && selectedRun.value?.status !== "submitting");
 const statusLabel = (status) => ({ submitting: "运行中", completed: "成功", failed: "失败", outcome_unknown: "结果待核" })[status] || status;
-const errorLabel = (code) => ({ insufficient_quota: "组织额度不足", organization_disabled: "组织网关账号已停用", upstream_rejected: "模型服务拒绝了请求", upstream_result_unknown: "上游可能已收到请求；请先核对用量，不要立即重试", submission_interrupted: "提交过程被中断，结果可能已计费" })[code] || "本次体验未完成";
+const errorLabel = (code) => ({ insufficient_quota: "组织额度不足", organization_disabled: "组织网关账号已停用", key_unavailable: "所选 API Key 已失效或未授权此模型", key_not_found: "所选 API Key 不存在", upstream_rejected: "模型服务拒绝了请求", upstream_result_unknown: "上游可能已收到请求；请先核对用量，不要立即重试", submission_interrupted: "提交过程被中断，结果可能已计费" })[code] || "本次体验未完成";
 const formatTime = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value || "—" : date.toLocaleString("zh-CN");
@@ -35,8 +41,13 @@ const formatTime = (value) => {
 const loadAvailability = async () => {
   modelsError.value = "";
   usageError.value = "";
+  keysError.value = "";
   try { models.value = (await controlApi.listModels()) || []; }
   catch (cause) { modelsError.value = cause instanceof Error ? cause.message : "模型目录加载失败"; }
+  try {
+    keys.value = (await controlApi.listApiKeys()) || [];
+    if (!availableKeys.value.some((key) => key.id === selectedKeyId.value)) selectedKeyId.value = "";
+  } catch (cause) { keysError.value = cause instanceof Error ? cause.message : "API Key 加载失败"; }
   try { usage.value = await controlApi.getApiUsage(); }
   catch (cause) { usageError.value = cause instanceof Error ? cause.message : "组织额度读取失败"; }
 };
@@ -71,7 +82,7 @@ const submit = async () => {
   if (!canSubmit.value) return;
   submitting.value = true;
   submitError.value = "";
-  const request = pendingRequest.value || { requestId: crypto.randomUUID(), modelId: props.modelId, prompt: prompt.value.trim() };
+  const request = pendingRequest.value || { requestId: crypto.randomUUID(), modelId: props.modelId, keyId: selectedKeyId.value, prompt: prompt.value.trim() };
   pendingRequest.value = request;
   try {
     const run = await controlApi.createModelExperienceRun(request);
@@ -98,6 +109,8 @@ watch(() => [props.organizationId, props.modelId], () => {
   selectedRunId.value = "";
   runs.value = [];
   usage.value = null;
+  keys.value = [];
+  selectedKeyId.value = "";
   chargeConfirmed.value = false;
   pendingRequest.value = null;
   refresh();
@@ -108,14 +121,16 @@ onUnmounted(() => window.clearTimeout(pollTimer));
 
 <template>
   <section class="content-panel model-experience-panel">
-    <div class="section-heading"><div><h2>模型在线体验</h2><p>{{ models.find((model) => model.id === modelId)?.name || modelId }} · 每次提交都会使用当前组织的真实 API 额度。</p></div><StatusBadge :label="modelAvailable && usage?.enabled && usage.remainingQuota > 0 && !modelsError && !usageError ? '可调用' : '待核验'" /></div>
+    <div class="section-heading"><div><h2>模型在线体验</h2><p>{{ models.find((model) => model.id === modelId)?.name || modelId }} · 先创建并选择当前组织的 API Key，再使用真实额度体验。</p></div><StatusBadge :label="modelAvailable && selectedKey && usage?.enabled && usage.remainingQuota > 0 && !modelsError && !usageError && !keysError ? '可调用' : '待核验'" /></div>
     <div class="model-experience-balance"><span>组织 API 余额</span><strong>{{ usage && !usageError ? formatQuotaUSD(usage.remainingQuota) : '暂不可用' }}</strong><button class="text-button" @click="refresh">刷新状态</button></div>
-    <div v-if="modelsError || usageError" class="ops-note"><AppIcon name="warning" :size="18" /><div><strong>暂时无法发起体验</strong><p>{{ modelsError || usageError }}</p></div></div>
+    <div v-if="modelsError || usageError || keysError" class="ops-note"><AppIcon name="warning" :size="18" /><div><strong>暂时无法发起体验</strong><p>{{ modelsError || usageError || keysError }}</p></div></div>
+    <div v-if="!keysError && !availableKeys.length" class="ops-note"><AppIcon name="key" :size="18" /><div><strong>先创建可用于此模型的 API Key</strong><p>{{ canCreateKey ? '当前组织还没有授权此模型的有效 Key。创建后返回这里选择，系统不会使用隐藏的内部凭证。' : '请联系组织管理员创建授权此模型的 Key；当前没有可用 Key，无法发起付费体验。' }}</p></div><button v-if="canCreateKey" class="button secondary" @click="navigate(`/api/keys?return_to=${encodeURIComponent(`/experience?model=${modelId}`)}`)">创建 API Key</button></div>
     <div class="model-experience-layout">
       <div class="model-experience-form">
+        <label class="form-field"><span>本次体验使用的 API Key</span><select v-model="selectedKeyId" :disabled="!!pendingRequest || !availableKeys.length"><option value="">请选择已授权此模型的 Key</option><option v-for="key in availableKeys" :key="key.id" :value="key.id">{{ key.name }} · {{ key.prefix }}</option></select></label>
         <label class="form-field"><span>输入问题或创作指令</span><textarea v-model="prompt" rows="8" maxlength="2000" :disabled="!modelAvailable || !!pendingRequest" placeholder="例如：为一部环保主题短片写一段 80 字的开场旁白。" /></label>
         <div class="model-experience-limit"><span>最多 2,000 字；输出最多 256 tokens</span><span>{{ prompt.trim().length }} / 2,000</span></div>
-        <label class="model-experience-consent"><input v-model="chargeConfirmed" type="checkbox" :disabled="!modelAvailable || !usage?.enabled || usage.remainingQuota <= 0" /><span>我了解这是实际模型调用，会按组织网关规则扣除 API 额度。</span></label>
+        <label class="model-experience-consent"><input v-model="chargeConfirmed" type="checkbox" :disabled="!modelAvailable || !selectedKey || !usage?.enabled || usage.remainingQuota <= 0" /><span>我了解这是使用所选 API Key 的实际模型调用，会按组织网关规则扣除 API 额度。</span></label>
         <button class="button primary" :disabled="!canSubmit" @click="submit"><AppIcon name="spark" :size="17" />{{ submitting ? '正在创建任务…' : pendingRequest ? '核对/继续原请求' : '开始真实体验' }}</button>
         <p v-if="pendingRequest" class="ops-note">原请求状态尚未确认。继续时会沿用同一请求 ID；如果原请求未到达服务器，这一步可能首次产生费用。</p>
         <p v-if="usage && usage.remainingQuota <= 0" class="form-error">组织额度不足，请联系客户成功管理员分配 API 额度。</p>
@@ -124,7 +139,7 @@ onUnmounted(() => window.clearTimeout(pollTimer));
       </div>
       <div class="model-experience-result" aria-live="polite">
         <template v-if="selectedRun">
-          <div class="model-experience-result-head"><span>任务 {{ selectedRun.id }}</span><StatusBadge :label="statusLabel(selectedRun.status)" /></div>
+          <div class="model-experience-result-head"><span>任务 {{ selectedRun.id }} · {{ selectedRun.keyId ? `Key ${selectedRun.keyId}` : '历史内部体验' }}</span><StatusBadge :label="statusLabel(selectedRun.status)" /></div>
           <p class="model-experience-prompt">{{ selectedRun.prompt }}</p>
           <div v-if="selectedRun.status === 'completed'" class="model-experience-answer">{{ selectedRun.response }}</div>
           <div v-else-if="selectedRun.status === 'submitting'" class="model-experience-pending"><div class="loading-ring" /><span>模型正在生成；离开页面后可从体验记录恢复。</span></div>

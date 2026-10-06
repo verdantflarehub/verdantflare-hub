@@ -8,8 +8,8 @@ import StatusBadge from "../components/StatusBadge.vue";
 import { navigate } from "../router";
 import { formatQuotaUSD, formatUsagePercent } from "../utils/quota";
 
-const props = defineProps({ path: String, query: { type: String, default: "" }, organization: Object });
-const emit = defineEmits(["toast"]);
+const props = defineProps({ path: String, query: { type: String, default: "" }, organization: Object, organizations: { type: Array, default: () => [] } });
+const emit = defineEmits(["toast", "switch-organization"]);
 const modelSearch = ref("");
 const keys = ref([]);
 const keysLoading = ref(false);
@@ -29,6 +29,11 @@ const usage = ref(null);
 const usageLoading = ref(false);
 const usageError = ref("");
 const requestedModelId = new URLSearchParams(props.query).get("model") || "";
+const experienceReturnPath = computed(() => {
+  const path = new URLSearchParams(props.query).get("return_to") || "";
+  return /^\/experience\?model=[a-z0-9-]+$/.test(path) ? path : "";
+});
+const experienceReturnModelId = computed(() => experienceReturnPath.value.split("model=")[1] || "");
 const models = ref([]);
 const modelsLoading = ref(true);
 const modelsError = ref("");
@@ -152,7 +157,8 @@ const revokeKey = async (key) => {
 };
 
 const openCreateKey = () => {
-  keyDraft.value = { name: "", scopes: models.value[0] ? [models.value[0].id] : [], expiresInDays: 90, requestId: crypto.randomUUID() };
+  const initialModel = models.value.find((model) => model.id === experienceReturnModelId.value) || models.value[0];
+  keyDraft.value = { name: "", scopes: initialModel ? [initialModel.id] : [], expiresInDays: 90, requestId: crypto.randomUUID() };
   keysError.value = "";
   showCreateKey.value = true;
 };
@@ -212,6 +218,11 @@ const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? 
       <button v-if="section === 'usage'" class="button secondary" :disabled="usageLoading" @click="loadUsage">刷新用量</button>
     </header>
 
+    <section v-if="section === 'keys' || section === 'usage'" class="api-organization-band" aria-label="当前 API 组织">
+      <div><span>当前组织</span><strong>{{ organization?.name || organization?.organizationId }}</strong><small>API Key 与额度均按组织隔离</small></div>
+      <label v-if="organizations.length > 1" class="form-field"><span>切换组织</span><select :value="organization?.organizationId" @change="emit('switch-organization', $event.target.value)"><option v-for="item in organizations" :key="item.organizationId" :value="item.organizationId">{{ item.name }}</option></select></label>
+    </section>
+
     <template v-if="section === 'models'">
       <section v-if="modelsError" class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>模型市场加载失败</strong><p>{{ modelsError }}</p></div><button class="button secondary" @click="loadModels">重新加载</button></section>
       <div class="catalog-tools"><label class="search-field"><AppIcon name="search" :size="18" /><input v-model="modelSearch" type="search" placeholder="搜索模型或提供方" /></label><span>{{ modelsLoading ? '正在加载模型…' : `${filteredModels.length} 个目录模型` }}</span></div>
@@ -225,14 +236,14 @@ const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? 
     <template v-else-if="section === 'keys'">
       <section class="security-callout"><AppIcon name="key" :size="22" /><div><strong>组织级网关凭证</strong><p>仅组织管理员可创建；选择已上架模型和有效期。密钥只在创建成功时显示，请妥善保存。连通性测试不发起付费推理。</p></div></section>
       <section v-if="modelsError" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>授权模型加载失败</strong><p>{{ modelsError }}</p></div><button class="button secondary" @click="loadModels">重试</button></section>
-      <section v-if="createdKey" class="content-panel key-secret-panel"><div class="section-heading"><div><h2>请立即保存新密钥</h2><p>关闭后不会在 Hub 再次显示。不要把密钥提交到代码库或发送给他人。</p></div><button class="icon-button" aria-label="关闭密钥展示" @click="createdKey = null"><AppIcon name="close" :size="16" /></button></div><div class="key-secret-row"><code>{{ createdKey.secret }}</code><button class="button secondary" @click="copyText(createdKey.secret, '密钥已复制')"><AppIcon name="copy" :size="15" />复制密钥</button></div><p>已授权：{{ createdKey.scopes.join('、') }} · 有效至 {{ formatDate(createdKey.expiresAt) }}</p></section>
+      <section v-if="createdKey" class="content-panel key-secret-panel"><div class="section-heading"><div><h2>请立即保存新密钥</h2><p>关闭后不会在 Hub 再次显示。不要把密钥提交到代码库或发送给他人。</p></div><button class="icon-button" aria-label="关闭密钥展示" @click="createdKey = null"><AppIcon name="close" :size="16" /></button></div><div class="key-secret-row"><code>{{ createdKey.secret }}</code><button class="button secondary" @click="copyText(createdKey.secret, '密钥已复制')"><AppIcon name="copy" :size="15" />复制密钥</button></div><p>已授权：{{ createdKey.scopes.join('、') }} · 有效至 {{ formatDate(createdKey.expiresAt) }}</p><button v-if="experienceReturnPath" class="button secondary" @click="navigate(experienceReturnPath)">已保存密钥，返回在线体验</button></section>
       <section v-if="keysError" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>API Key 操作失败</strong><p>{{ keysError }}</p></div><button class="button secondary" @click="loadKeys">重新加载</button></section>
       <p v-if="keysLoading">正在加载 API Key…</p>
       <div class="data-table keys-table">
         <div class="table-head"><span>名称</span><span>Key</span><span>权限范围</span><span>创建时间</span><span>最后使用</span><span>状态</span><span /></div>
         <div v-for="key in keys" :key="key.id" class="table-row"><span><strong>{{ key.name }}</strong><small>{{ key.source === 'legacy' ? '历史记录 · 不可调用' : `到期 ${formatDate(key.expiresAt)}` }}</small></span><code>{{ key.prefix }}</code><span class="scope-list"><i v-for="scope in key.scopes" :key="scope">{{ scope }}</i></span><span>{{ formatDate(key.createdAt || key.created) }}</span><span>{{ formatDateTime(key.lastUsedAt || key.lastUsed) }}</span><StatusBadge :label="key.source === 'legacy' ? '历史记录' : ({ active: '有效', revoked: '已撤销', expired: '已过期' })[key.status] || key.status" /><span class="key-actions"><button v-if="key.source === 'gateway' && canManageKeys" class="row-action" :disabled="probingKeyId === key.id" :aria-label="`测试 ${key.name}`" @click="probeKey(key)"><AppIcon name="check" :size="15" /></button><button v-if="key.status === 'active' && canManageKeys" class="row-action" :aria-label="`撤销 ${key.name}`" @click="revokeKey(key)"><AppIcon name="close" :size="15" /></button></span></div>
       </div>
-      <p v-if="!keysLoading && !keysError && !keys.length">当前组织尚未创建 API Key。</p>
+      <div v-if="!keysLoading && !keysError && !keys.length" class="api-key-empty"><AppIcon name="key" :size="23" /><div><strong>此组织暂无用户 API Key</strong><p>历史在线体验可能使用过旧版内部凭证，因此有消耗却没有用户 Key。新体验必须先创建并选择自己的 Key；若 Key 建在另一组织，请切换组织查看。</p></div></div>
       <div v-for="key in keys.filter((item) => probeResults[item.id])" :key="`probe-${key.id}`" class="key-probe-result" role="status"><strong>{{ key.name }}：{{ probeReason(probeResults[key.id]) }}</strong><span>剩余 ${{ ((probeResults[key.id].remainingQuota || 0) / 500000).toFixed(2) }} · 可见模型 {{ (probeResults[key.id].models || []).join('、') || '无' }} · 只读验证，未执行推理</span></div>
     </template>
 
@@ -257,7 +268,7 @@ const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? 
       <p v-if="usageLoading">正在读取用量…</p>
       <template v-if="usage && !usageError">
         <section class="budget-band"><div><span>组织累计 API 额度</span><strong>{{ formatQuotaUSD(usage.usedQuota) }} <small>/ {{ formatQuotaUSD(usage.budgetQuota) }}</small></strong><p>剩余 {{ formatQuotaUSD(usage.remainingQuota) }} · 已使用 {{ formatUsagePercent(usage.usedQuota, usage.budgetQuota) }}</p></div><div class="budget-ring"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="32" /><circle class="progress" cx="40" cy="40" r="32" :style="{ strokeDashoffset: 201 * (1 - Math.min(100, Math.max(0, usage.percentage)) / 100) }" /></svg><strong>{{ formatUsagePercent(usage.usedQuota, usage.budgetQuota) }}</strong></div></section>
-        <section class="content-panel usage-summary"><div class="section-heading"><div><h2>用量摘要</h2><p>网关组织累计总量；逐日和按模型明细尚未接入。</p></div></div><div class="metric-grid compact"><MetricCard label="累计分配" :value="formatQuotaUSD(usage.budgetQuota)" icon="usage" tone="mint" /><MetricCard label="已使用" :value="formatQuotaUSD(usage.usedQuota)" icon="tasks" tone="blue" /><MetricCard label="剩余" :value="formatQuotaUSD(usage.remainingQuota)" icon="check" tone="violet" /></div></section>
+        <section class="content-panel usage-summary"><div class="section-heading"><div><h2>用量摘要</h2><p>网关组织累计总量；逐日和按模型明细尚未接入。</p></div></div><div class="metric-grid compact"><MetricCard label="累计分配" :value="formatQuotaUSD(usage.budgetQuota)" icon="usage" tone="mint" /><MetricCard label="已使用" :value="formatQuotaUSD(usage.usedQuota)" icon="tasks" tone="blue" /><MetricCard label="剩余" :value="formatQuotaUSD(usage.remainingQuota)" icon="check" tone="violet" /><div class="usage-source-card"><span>数据口径</span><strong>模型网关组织账户</strong><p>新体验使用用户选择的 API Key，和直接 API 调用共同计入组织额度。旧版内部体验的历史消耗仍保留，不会冒充某把用户 Key 的用量。</p></div></div></section>
       </template>
     </template>
 

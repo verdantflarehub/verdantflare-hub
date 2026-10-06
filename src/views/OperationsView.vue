@@ -18,7 +18,7 @@ const releaseFilter = ref("全部");
 const planFilter = ref("全部");
 const showCreate = ref(false);
 const saving = ref(false);
-const form = ref({ id: "", name: "", shortName: "", version: "0.1.0", category: "", summary: "", plan: "Pilot" });
+const form = ref({ id: "", name: "", shortName: "", groupId: "image", category: "", summary: "", developer: "", plan: "Pilot" });
 
 const load = async () => {
   loading.value = true;
@@ -44,7 +44,7 @@ const filteredOrganizations = computed(() => organizations.value.filter((item) =
 ));
 
 const openCreate = () => {
-  form.value = { id: "", name: "", shortName: "", version: "0.1.0", category: "", summary: "", plan: "Pilot" };
+  form.value = { id: "", name: "", shortName: "", groupId: "image", category: "", summary: "", developer: "", plan: "Pilot" };
   showCreate.value = true;
 };
 const create = async () => {
@@ -55,9 +55,10 @@ const create = async () => {
       const record = await controlApi.createManagedApp({
         id: form.value.id,
         name: form.value.name,
-        version: form.value.version,
+        groupId: form.value.groupId,
         category: form.value.category,
         summary: form.value.summary,
+        developer: form.value.developer,
         icon: "market",
         tone: "mint",
       });
@@ -87,7 +88,7 @@ const create = async () => {
       <section class="metric-grid compact"><MetricCard label="应用总数" :value="String(releases.length)" detail="来自 Control Service" icon="release" tone="mint" /><MetricCard label="Preview" :value="String(releases.filter((item) => item.channel === 'Preview').length)" detail="可授权客户" icon="market" tone="blue" /><MetricCard label="目录草稿" :value="String(releases.filter((item) => item.channel === 'Candidate').length)" detail="不等同于候选版本" icon="warning" tone="coral" /></section>
       <div class="task-filters release-filters"><button v-for="filter in ['全部', '已发布', '灰度中', '候选', '已暂停']" :key="filter" :class="{ active: releaseFilter === filter }" @click="releaseFilter = filter">{{ filter }}</button><label class="search-field small"><AppIcon name="search" :size="16" /><input v-model="search" placeholder="搜索应用或版本" /></label></div>
       <p v-if="loading">正在加载发布记录…</p>
-      <div v-else class="data-table release-table"><div class="table-head"><span>应用</span><span>版本 / 通道</span><span>Station 验证</span><span>客户范围</span><span>更新时间</span><span>目录状态</span><span /></div><div v-for="release in filteredReleases" :key="release.appId" class="table-row"><strong>{{ release.app }}</strong><span><b>{{ release.version }}</b><small>{{ release.channel }}</small></span><span>未接入</span><span>{{ release.audience }}</span><span>{{ release.updated || '—' }}</span><StatusBadge :label="release.channel === 'Preview' ? '目录预览' : release.status" /><button class="row-action" :aria-label="`管理 ${release.app} 发布`" @click="navigate(`/ops/apps/${release.appId}/releases`)"><AppIcon name="arrow" :size="15" /></button></div></div>
+      <div v-else class="data-table release-table"><div class="table-head"><span>应用</span><span>版本 / 通道</span><span>Station 验证</span><span>客户范围</span><span>更新时间</span><span>目录状态</span><span /></div><div v-for="release in filteredReleases" :key="release.appId" class="table-row"><strong>{{ release.app }}</strong><span><b>{{ release.version || '待登记' }}</b><small>{{ release.channel }}</small></span><span>未接入</span><span>{{ release.audience }}</span><span>{{ release.updated || '—' }}</span><StatusBadge :label="release.channel === 'Preview' ? '目录预览' : release.status" /><button class="row-action" :aria-label="`管理 ${release.app} 发布`" @click="navigate(`/ops/apps/${release.appId}/releases`)"><AppIcon name="arrow" :size="15" /></button></div></div>
       <p v-if="!loading && !filteredReleases.length">没有符合条件的应用。</p>
     </template>
 
@@ -99,6 +100,27 @@ const create = async () => {
       <p v-if="!loading && !filteredOrganizations.length">没有符合条件的组织。</p>
     </template>
 
-    <Transition name="modal"><div v-if="showCreate" class="modal-backdrop" @click.self="showCreate = false"><section class="modal-card invite-modal"><header><div><span class="page-overline">{{ section === 'apps' ? 'NEW APP RECORD' : 'NEW ORGANIZATION' }}</span><h2>{{ section === 'apps' ? '新建应用资料' : '新建客户组织' }}</h2></div><button class="icon-button" aria-label="关闭弹窗" @click="showCreate = false"><AppIcon name="close" /></button></header><template v-if="section === 'apps'"><p class="candidate-help">这一步只建立目录记录；创建后到详情页登记独立、不可覆盖的候选版本。</p><label class="form-field"><span>应用 ID</span><input v-model.trim="form.id" placeholder="例如 video-studio" /></label><label class="form-field"><span>应用名称</span><input v-model.trim="form.name" /></label><label class="form-field"><span>目录展示版本</span><input v-model.trim="form.version" /></label><label class="form-field"><span>分类</span><input v-model.trim="form.category" /></label><label class="form-field"><span>简介</span><input v-model.trim="form.summary" /></label></template><template v-else><label class="form-field"><span>组织名称</span><input v-model.trim="form.name" /></label><label class="form-field"><span>简称（可选）</span><input v-model.trim="form.shortName" /></label><label class="form-field"><span>套餐</span><select v-model="form.plan"><option>Pilot</option><option>Studio</option><option>Enterprise</option></select></label></template><footer><button class="button secondary" @click="showCreate = false">取消</button><button class="button primary" :disabled="saving || !form.name || (section === 'apps' && (!form.id || !form.version))" @click="create">{{ saving ? '正在保存…' : '创建' }}</button></footer></section></div></Transition>
+    <Transition name="modal">
+      <div v-if="showCreate" class="modal-backdrop" @click.self="showCreate = false">
+        <section class="modal-card invite-modal">
+          <header><div><span class="page-overline">{{ section === 'apps' ? 'NEW APP RECORD' : 'NEW ORGANIZATION' }}</span><h2>{{ section === 'apps' ? '新建应用资料' : '新建客户组织' }}</h2></div><button class="icon-button" aria-label="关闭弹窗" @click="showCreate = false"><AppIcon name="close" /></button></header>
+          <template v-if="section === 'apps'">
+            <p class="candidate-help">先建立 Center 应用身份；真实版本、Manifest、镜像、依赖和许可在详情页登记。此草稿不会提供给 Station 安装。</p>
+            <label class="form-field"><span>应用 ID *</span><input v-model.trim="form.id" placeholder="例如 comfyui" /></label>
+            <label class="form-field"><span>应用名称 *</span><input v-model.trim="form.name" /></label>
+            <label class="form-field"><span>Station 主分组 *</span><select v-model="form.groupId"><option value="image">Image</option><option value="music">Music</option><option value="video">Video</option></select></label>
+            <label class="form-field"><span>市场分类 *</span><input v-model.trim="form.category" placeholder="例如 图像创作" /></label>
+            <label class="form-field"><span>开发者／维护方</span><input v-model.trim="form.developer" placeholder="应用展示资料；版本发布者另行登记" /></label>
+            <label class="form-field"><span>简介 *</span><input v-model.trim="form.summary" placeholder="一句话说明用途，不填写安装承诺" /></label>
+          </template>
+          <template v-else>
+            <label class="form-field"><span>组织名称</span><input v-model.trim="form.name" /></label>
+            <label class="form-field"><span>简称（可选）</span><input v-model.trim="form.shortName" /></label>
+            <label class="form-field"><span>套餐</span><select v-model="form.plan"><option>Pilot</option><option>Studio</option><option>Enterprise</option></select></label>
+          </template>
+          <footer><button class="button secondary" @click="showCreate = false">取消</button><button class="button primary" :disabled="saving || !form.name || (section === 'apps' && (!form.id || !form.category || !form.summary))" @click="create">{{ saving ? '正在保存…' : '创建' }}</button></footer>
+        </section>
+      </div>
+    </Transition>
   </div>
 </template>

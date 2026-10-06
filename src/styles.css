@@ -403,7 +403,19 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .candidate-version-form .button { margin-top: 15px; }.candidate-json-fields { margin-top: 15px; }
 .candidate-help { margin: 12px 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .candidate-file-field input { padding: 10px 12px; }
+.station-grants-panel { margin-top: 20px; }
+.station-grant-form { margin-top: 20px; }
+.station-grant-form .form-field { min-width: 0; }
+.station-grant-row { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 15px 0; border-top: 1px solid var(--line); }
+.station-grant-row > div:first-child { min-width: 0; }
+.station-grant-row strong { font-size: 12px; }
+.station-grant-row p { margin: 6px 0; color: var(--muted-strong); font-size: 11px; overflow-wrap: anywhere; }
+.station-grant-row code { font-size: 10px; overflow-wrap: anywhere; }
+.station-grant-row small { color: var(--muted); font-size: 10px; }
+.station-grant-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; font-size: 11px; }
+.station-grant-active { color: var(--green); }.station-grant-inactive { color: var(--muted); }
 @media (max-width: 650px) { .candidate-version-details dl { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .station-grant-row { align-items: flex-start; flex-direction: column; }.station-grant-actions { align-self: flex-end; } }
 .validation-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .validation-grid > div { min-height: 64px; padding: 13px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 8px; }
 .validation-grid > div > svg { color: var(--green); }.validation-grid > div:nth-child(n+3) > svg { color: var(--amber); }

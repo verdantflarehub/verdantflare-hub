@@ -187,7 +187,7 @@ const save = async (channel = form.value.channel) => {
       publicVisible: Boolean(form.value.publicVisible) && ["Preview", "Stable"].includes(channel),
     });
     form.value = { ...record.value.app };
-    emit("toast", channel === "Preview" ? "应用已加入 Preview 目录；运行状态待 Station 核验" : "应用目录资料已保存");
+    emit("toast", channel === "Listed" ? "应用已上架 Hub 目录；交付包与体验尚未就绪" : channel === "Preview" ? "应用已加入 Preview 目录；运行状态待 Station 核验" : "应用目录资料已保存");
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "保存失败";
   } finally {
@@ -205,7 +205,7 @@ const save = async (channel = form.value.channel) => {
       <section class="detail-command-bar internal-detail">
         <div class="app-large-icon" :class="record.app.tone"><AppIcon :name="record.app.icon || 'market'" :size="31" /></div>
         <div class="detail-title-copy"><span class="page-overline internal-overline">APP RELEASE</span><h1>{{ record.app.name }} · {{ record.app.version || '版本待登记' }}</h1><p>应用 ID：<code>{{ record.app.id }}</code> · 已授权 {{ record.release.audience }}</p></div>
-        <div class="detail-command-actions"><StatusBadge :label="record.app.channel === 'Preview' ? '目录预览' : record.release.status" /><button class="button secondary" :disabled="saving" @click="save()">保存更改</button><button class="button primary" :disabled="saving || !form.version || record.app.channel === 'Preview'" @click="save('Preview')">加入 Preview 目录</button></div>
+        <div class="detail-command-actions"><StatusBadge :label="record.app.channel === 'Preview' ? '目录预览' : record.release.status" /><button class="button secondary" :disabled="saving" @click="save()">保存更改</button><button v-if="!record.app.version" class="button primary" :disabled="saving || record.app.channel === 'Listed'" @click="save('Listed')">上架 Hub 目录</button><button v-else class="button primary" :disabled="saving || record.app.channel === 'Preview'" @click="save('Preview')">加入 Preview 目录</button></div>
       </section>
 
       <div class="detail-two-column release-detail-grid">
@@ -219,8 +219,8 @@ const save = async (channel = form.value.channel) => {
           <label class="form-field"><span>公开介绍</span><textarea v-model.trim="form.description" rows="3" /></label>
         </section>
         <aside class="content-panel release-controls">
-          <div class="section-heading"><div><h2>发布通道</h2><p>Candidate 与 Paused 不向客户展示。</p></div></div>
-          <label class="form-field"><span>通道</span><select v-model="form.channel"><option>Candidate</option><option>Preview</option><option :disabled="record.release.validation !== '6 / 6'">Stable</option><option>Paused</option></select></label>
+          <div class="section-heading"><div><h2>发布通道</h2><p>Listed 仅在 Hub 展示应用资料，不授予权益或安装能力。</p></div></div>
+          <label class="form-field"><span>通道</span><select v-model="form.channel"><option>Candidate</option><option :disabled="Boolean(form.version)">Listed</option><option :disabled="!form.version">Preview</option><option :disabled="record.release.validation !== '6 / 6'">Stable</option><option>Paused</option></select></label>
           <label class="form-field"><span>WWW 公开</span><select v-model="form.publicVisible" :disabled="!['Preview', 'Stable'].includes(form.channel)"><option :value="false">不公开</option><option :value="true">公开目录资料</option></select></label>
           <div class="release-warning"><AppIcon name="warning" :size="18" /><span>当前未接入 Station 验证。Preview 只改变 Control 目录与组织可见范围，不部署应用，也不证明应用可运行；Stable 暂不可发布。</span></div>
         </aside>

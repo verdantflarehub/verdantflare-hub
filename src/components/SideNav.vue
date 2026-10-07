@@ -23,7 +23,7 @@ const groups = [
     { label: "工作台", icon: "overview", href: "/", exact: true },
     { label: "模型市场", icon: "models", href: "/api/models" },
     { label: "应用市场", icon: "market", href: "/market" },
-    { label: "在线体验", icon: "experience", href: "/experience" },
+    { label: "模型体验", icon: "experience", href: "/experience" },
   ] },
   { label: "API CENTER", items: [
     { label: "API 密钥", icon: "key", href: "/api/keys" },
@@ -63,8 +63,8 @@ onBeforeUnmount(() => {
       <img src="/brand/verdantflare-logo.png" alt="" />
       <span class="brand-copy"><strong>VerdantFlare</strong><small>HUB</small></span>
     </button>
-    <button class="side-primary" title="开始在线体验" @click="select('/experience')">
-      <AppIcon name="plus" :size="17" /><span>开始在线体验</span>
+    <button class="side-primary" title="开始模型体验" @click="select('/experience')">
+      <AppIcon name="plus" :size="17" /><span>开始模型体验</span>
     </button>
     <nav class="side-navigation" aria-label="Hub 主导航">
       <section v-for="group in groups" :key="group.label">

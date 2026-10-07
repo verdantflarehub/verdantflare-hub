@@ -15,7 +15,7 @@ const apps = ref([]);
 const loading = ref(true);
 const error = ref("");
 const section = computed(() => props.path === "/api/models" ? "models" : props.path === "/market" ? "apps" : "overview");
-const title = computed(() => ({ overview: "探索 VerdantFlare", models: "公开模型目录", apps: "公开应用目录" })[section.value]);
+const title = computed(() => ({ overview: "探索 VerdantFlare", models: "公开模型目录", apps: "探索应用市场" })[section.value]);
 
 const loadCatalog = async () => {
   loading.value = true;
@@ -59,7 +59,7 @@ onMounted(loadCatalog);
         <div class="guest-hero-copy">
           <span class="guest-eyebrow">VERDANTFLARE / DISCOVER</span>
           <h1>{{ title }}<span class="guest-title-dot">.</span></h1>
-          <p>你已经登录，可以浏览公开的模型和应用。加入组织后，才能使用在线体验、API Key 与组织工作台。</p>
+          <p>你已经登录，可以浏览公开的模型和应用。加入组织后，可按权限使用已开放的模型体验、API Key 与组织工作台；应用不在 Hub 在线运行。</p>
           <div class="guest-actions">
             <button v-if="section !== 'models'" class="button primary" type="button" @click="navigate('/api/models')"><AppIcon name="models" :size="17" />探索模型</button>
             <button v-if="section !== 'apps'" class="button secondary" type="button" @click="navigate('/market')"><AppIcon name="market" :size="17" />浏览应用</button>
@@ -87,7 +87,7 @@ onMounted(loadCatalog);
         </section>
 
         <section v-if="section !== 'models'" class="guest-catalog" aria-labelledby="guest-app-heading">
-          <div class="guest-section-heading"><div><span>APP MARKET</span><h2 id="guest-app-heading">公开应用</h2><p>查看应用简介与公开版本；实际运行和组织授权需另行开通。</p></div><strong>{{ apps.length }} 个应用</strong></div>
+          <div class="guest-section-heading"><div><span>APP MARKET</span><h2 id="guest-app-heading">公开应用</h2><p>查看应用简介与目录版本；是否可安装和运行，须由当前 Station 在 Studio 中核验。</p></div><strong>{{ apps.length }} 个应用</strong></div>
           <div v-if="apps.length" class="catalog-card-grid">
             <CatalogCard v-for="app in apps" :key="app.id" :title="app.name" :meta="`${app.developer || app.category} · v${app.version}`" :description="app.summary" icon="market" :icon-url="app.iconUrl" :tags="[app.category, app.gpu].filter(Boolean)" status="仅供浏览" />
           </div>

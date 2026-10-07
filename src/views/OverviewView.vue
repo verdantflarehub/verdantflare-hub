@@ -56,13 +56,13 @@ watch(() => props.organization.organizationId, load, { immediate: true });
       <button @click="navigate('/api/usage')"><span class="overview-rail-icon"><AppIcon name="usage" :size="19" /></span><span><strong>用量</strong><small>查看实际扣费</small></span><AppIcon name="chevron" :size="15" /></button>
     </section>
 
-    <div class="overview-section-heading"><div><h2>从发现到使用</h2><p>Hub 提供浏览、体验与 API 接入；本地应用安装由 Studio 管理。</p></div><button class="text-button" @click="navigate('/market')">查看应用市场<AppIcon name="arrow" :size="15" /></button></div>
+    <div class="overview-section-heading"><div><h2>从发现到使用</h2><p>Hub 展示应用市场并提供模型体验与 API 接入；应用安装由 Studio 管理当前 Station。</p></div><button class="text-button" @click="navigate('/market')">查看应用市场<AppIcon name="arrow" :size="15" /></button></div>
     <section class="overview-journey">
-      <div class="overview-journey-copy"><h3>从想法开始。</h3><p>选择模型或应用，在授权范围内在线体验，或通过 API 接入。需要本地运行？前往 Studio，将应用安装到当前 Station。</p><button class="button primary" @click="navigate('/api/models')">浏览模型市场<AppIcon name="arrow" :size="15" /></button></div>
+      <div class="overview-journey-copy"><h3>从想法开始。</h3><p>模型可按开放范围在线体验或通过 API 接入；应用先在目录了解。可信交付与兼容性检查接通后，由 Studio 管理当前 Station 的安装和运行。</p><button class="button primary" @click="navigate('/api/models')">浏览模型市场<AppIcon name="arrow" :size="15" /></button></div>
       <div class="overview-journey-steps"><h4>典型路径</h4><div>
         <div><b>01 / 发现</b><strong>模型与应用</strong><span>查看能力、版本与权益</span></div>
-        <div><b>02 / 验证</b><strong>在线体验</strong><span>在授权范围内试用</span></div>
-        <div><b>03 / 接入</b><strong>API 或 Studio</strong><span>按使用场景选择入口</span></div>
+        <div><b>02 / 验证</b><strong>模型在线体验</strong><span>仅对已开放模型试用</span></div>
+        <div><b>03 / 接入</b><strong>API 或 Studio</strong><span>应用以当前 Station 为准</span></div>
       </div></div>
     </section>
 

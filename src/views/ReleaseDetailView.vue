@@ -10,6 +10,9 @@ const emit = defineEmits(["toast"]);
 const appId = computed(() => props.path.split("/").filter(Boolean)[2]);
 const record = ref(null);
 const form = ref(null);
+const screenshotsText = ref("");
+const highlightsText = ref("");
+const permissionsText = ref("");
 const loading = ref(false);
 const saving = ref(false);
 const error = ref("");
@@ -62,7 +65,10 @@ const load = async () => {
   grants.value = [];
   try {
     record.value = await controlApi.getManagedApp(appId.value);
-    form.value = { ...record.value.app };
+    form.value = { ...record.value.app, showcase: { screenshots: [], highlights: [], permissions: [], ...record.value.app.showcase } };
+    screenshotsText.value = (form.value.showcase?.screenshots || []).join("\n");
+    highlightsText.value = (form.value.showcase?.highlights || []).join("\n");
+    permissionsText.value = (form.value.showcase?.permissions || []).join("\n");
     versionForm.value = { version: record.value.app.version || "", upstreamVersion: "", publisher: "", sourceUrl: "", sourceRevision: "", licenseId: "", licenseUrl: "", manifest: "", dependencies: "[]", permissions: "[]" };
     await loadVersions();
     await loadGrants();
@@ -74,6 +80,16 @@ const load = async () => {
   }
 };
 watch(appId, load, { immediate: true });
+const lines = (value) => value.split("\n").map((item) => item.trim()).filter(Boolean);
+const listingMissing = computed(() => {
+  if (!form.value) return [];
+  return [
+    ["应用名称", form.value.name], ["市场分类", form.value.category], ["一句话简介", form.value.summary],
+    ["开发者", form.value.developer], ["应用介绍", form.value.description],
+    ["展示截图（至少 1 张）", lines(screenshotsText.value).length],
+    ["功能亮点（至少 1 条）", lines(highlightsText.value).length],
+  ].filter(([, value]) => !value).map(([label]) => label);
+});
 
 const readManifestFile = async (event) => {
   const file = event.target.files?.[0];
@@ -164,6 +180,10 @@ const revokeGrant = async (grant) => {
 };
 
 const save = async (channel = form.value.channel) => {
+  if (channel === "Listed" && listingMissing.value.length) {
+    error.value = `Hub 目录上架还缺：${listingMissing.value.join("、")}`;
+    return;
+  }
   saving.value = true;
   error.value = "";
   try {
@@ -185,8 +205,14 @@ const save = async (channel = form.value.channel) => {
       cpu: form.value.cpu || "",
       publicIconUrl: form.value.publicIconUrl || "",
       publicVisible: Boolean(form.value.publicVisible) && ["Preview", "Stable"].includes(channel),
+      showcase: {
+        ...form.value.showcase,
+        screenshots: lines(screenshotsText.value),
+        highlights: lines(highlightsText.value),
+        permissions: lines(permissionsText.value),
+      },
     });
-    form.value = { ...record.value.app };
+    form.value = { ...record.value.app, showcase: { screenshots: [], highlights: [], permissions: [], ...record.value.app.showcase } };
     emit("toast", channel === "Listed" ? "应用已上架 Hub 目录；交付包与体验尚未就绪" : channel === "Preview" ? "应用已加入 Preview 目录；运行状态待 Station 核验" : "应用目录资料已保存");
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "保存失败";
@@ -205,18 +231,32 @@ const save = async (channel = form.value.channel) => {
       <section class="detail-command-bar internal-detail">
         <div class="app-large-icon" :class="record.app.tone"><AppIcon :name="record.app.icon || 'market'" :size="31" /></div>
         <div class="detail-title-copy"><span class="page-overline internal-overline">APP RELEASE</span><h1>{{ record.app.name }} · {{ record.app.version || '版本待登记' }}</h1><p>应用 ID：<code>{{ record.app.id }}</code> · 已授权 {{ record.release.audience }}</p></div>
-        <div class="detail-command-actions"><StatusBadge :label="record.app.channel === 'Preview' ? '目录预览' : record.release.status" /><button class="button secondary" :disabled="saving" @click="save()">保存更改</button><button v-if="!record.app.version" class="button primary" :disabled="saving || record.app.channel === 'Listed'" @click="save('Listed')">上架 Hub 目录</button><button v-else class="button primary" :disabled="saving || record.app.channel === 'Preview'" @click="save('Preview')">加入 Preview 目录</button></div>
+        <div class="detail-command-actions"><StatusBadge :label="record.app.channel === 'Preview' ? '目录预览' : record.release.status" /><button v-if="record.app.channel === 'Listed' || record.app.publicVisible" class="button secondary" @click="navigate(`/market/apps/${encodeURIComponent(appId)}`)">查看已上架详情</button><button class="button secondary" :disabled="saving" @click="save()">保存更改</button><button v-if="!record.app.version" class="button primary" :disabled="saving || record.app.channel === 'Listed' || listingMissing.length" @click="save('Listed')">上架 Hub 目录</button><button v-else class="button primary" :disabled="saving || record.app.channel === 'Preview'" @click="save('Preview')">加入 Preview 目录</button></div>
+      </section>
+
+      <section class="content-panel release-readiness-panel">
+        <div class="section-heading"><div><h2>发布检查</h2><p>目录展示、交付包和真实运行分别检查；填写展示字段不会证明应用可运行。</p></div></div>
+        <div class="readiness-grid"><div><strong>Hub 资料上架</strong><p>{{ listingMissing.length ? `缺少：${listingMissing.join('、')}` : '展示必填项已齐，可上架 Hub 目录。' }}</p></div><div><strong>可交付版本</strong><p>{{ versions.some((item) => item.version === form.version) ? '已登记候选清单；制品与安装仍待审计。' : '需登记不可变 Manifest、镜像摘要、来源和许可，并选择版本。' }}</p></div><div><strong>实际运行验证</strong><p>尚未接入 Station 安装、启动、健康检查与功能调用回报；当前不能判定“可运行”。</p></div></div>
       </section>
 
       <div class="detail-two-column release-detail-grid">
         <section class="content-panel manifest-panel">
           <div class="section-heading"><div><h2>应用目录资料</h2><p>这里保存的是 Market 展示内容，不是安装清单或 Station 运行记录。</p></div></div>
-          <div class="two-column-form"><label class="form-field"><span>应用名称</span><input v-model.trim="form.name" /></label><label class="form-field"><span>Station 主分组</span><input :value="form.groupId || '旧版目录未登记'" disabled /></label><label class="form-field"><span>目录展示版本</span><select v-if="form.groupId" v-model="form.version"><option value="">待登记</option><option v-for="item in versions" :key="item.version" :value="item.version">{{ item.version }}</option></select><input v-else v-model.trim="form.version" /></label><label class="form-field"><span>分类</span><input v-model.trim="form.category" /></label><label class="form-field"><span>推荐资源</span><input v-model.trim="form.gpu" /></label><label class="form-field"><span>体验时长说明</span><input v-model.trim="form.duration" /></label></div>
-          <label class="form-field"><span>简介</span><textarea v-model.trim="form.summary" rows="3" /></label>
+          <div class="two-column-form"><label class="form-field"><span>应用名称 *</span><input v-model.trim="form.name" /></label><label class="form-field"><span>Station 主分组</span><input :value="form.groupId || '旧版目录未登记'" disabled /></label><label class="form-field"><span>目录展示版本</span><select v-if="form.groupId" v-model="form.version"><option value="">待登记</option><option v-for="item in versions" :key="item.version" :value="item.version">{{ item.version }}</option></select><input v-else v-model.trim="form.version" /></label><label class="form-field"><span>市场分类 *</span><input v-model.trim="form.category" /></label><label class="form-field"><span>推荐资源</span><input v-model.trim="form.gpu" /></label><label class="form-field"><span>体验时长说明</span><input v-model.trim="form.duration" /></label></div>
+          <label class="form-field"><span>一句话简介 *</span><textarea v-model.trim="form.summary" rows="3" /></label>
+          <div class="section-heading"><div><h2>客户详情展示</h2><p>按截图组织展示内容；每行一条截图、功能或权限。图片与外部链接使用 HTTPS。</p></div></div>
+          <label class="form-field"><span>开发者 *</span><input v-model.trim="form.developer" /></label>
+          <label class="form-field"><span>应用介绍 *</span><textarea v-model.trim="form.description" rows="5" /></label>
+          <label class="form-field"><span>功能亮点 *（每行一条）</span><textarea v-model="highlightsText" rows="4" /></label>
+          <label class="form-field"><span>展示截图 URL *（每行一张，最多 8 张）</span><textarea v-model="screenshotsText" rows="4" placeholder="https://example.com/app-screen.png" /></label>
+          <details class="release-optional-fields"><summary>补充更新、权限、链接和资源信息（可选）</summary>
+          <label class="form-field"><span>新功能 / 更新说明</span><textarea v-model.trim="form.showcase.whatsNew" rows="3" /></label>
+          <label class="form-field"><span>所需权限（每行一条）</span><textarea v-model="permissionsText" rows="3" /></label>
+          <div class="two-column-form"><label class="form-field"><span>官网 URL</span><input v-model.trim="form.showcase.websiteUrl" type="url" /></label><label class="form-field"><span>文档 URL</span><input v-model.trim="form.showcase.docsUrl" type="url" /></label><label class="form-field"><span>源码 URL</span><input v-model.trim="form.showcase.sourceUrl" type="url" /></label><label class="form-field"><span>许可证</span><input v-model.trim="form.showcase.license" /></label><label class="form-field"><span>支持语言</span><input v-model.trim="form.showcase.languages" /></label><label class="form-field"><span>支持平台</span><input v-model.trim="form.showcase.platforms" /></label></div>
           <div class="section-heading"><div><h2>WWW 公开资料</h2><p>只展示手动公开的目录记录；版本与资源需求来自本页落库数据。</p></div></div>
-          <div class="two-column-form"><label class="form-field"><span>开发者</span><input v-model.trim="form.developer" /></label><label class="form-field"><span>参考内存</span><input v-model.trim="form.memory" /></label><label class="form-field"><span>参考磁盘</span><input v-model.trim="form.disk" /></label><label class="form-field"><span>参考 CPU</span><input v-model.trim="form.cpu" /></label></div>
+          <div class="two-column-form"><label class="form-field"><span>参考内存</span><input v-model.trim="form.memory" /></label><label class="form-field"><span>参考磁盘</span><input v-model.trim="form.disk" /></label><label class="form-field"><span>参考 CPU</span><input v-model.trim="form.cpu" /></label></div>
           <label class="form-field"><span>公开图标 URL（HTTPS，可选）</span><input v-model.trim="form.publicIconUrl" type="url" /></label>
-          <label class="form-field"><span>公开介绍</span><textarea v-model.trim="form.description" rows="3" /></label>
+          </details>
         </section>
         <aside class="content-panel release-controls">
           <div class="section-heading"><div><h2>发布通道</h2><p>Listed 仅在 Hub 展示应用资料，不授予权益或安装能力。</p></div></div>
@@ -225,6 +265,14 @@ const save = async (channel = form.value.channel) => {
           <div class="release-warning"><AppIcon name="warning" :size="18" /><span>当前未接入 Station 验证。Preview 只改变 Control 目录与组织可见范围，不部署应用，也不证明应用可运行；Stable 暂不可发布。</span></div>
         </aside>
       </div>
+
+      <section class="content-panel release-showcase-preview">
+        <div class="section-heading"><div><h2>客户详情内容预览</h2><p>直接使用当前未保存的表单内容；发布后客户页面读取 Control 已保存的记录。</p></div></div>
+        <h3>{{ form.name || '应用名称待填写' }}</h3><p>{{ form.summary || '一句话简介待填写' }}</p>
+        <div v-if="lines(screenshotsText).length" class="market-gallery"><a v-for="(url, index) in lines(screenshotsText)" :key="`${index}-${url}`" :href="url" target="_blank" rel="noopener noreferrer"><img :src="url" :alt="`展示截图 ${index + 1}`" loading="lazy" /></a></div>
+        <p class="market-detail-prose">{{ form.description || '应用介绍待填写' }}</p>
+        <ul v-if="lines(highlightsText).length"><li v-for="item in lines(highlightsText)" :key="item">{{ item }}</li></ul>
+      </section>
 
       <section class="content-panel candidate-version-panel">
         <div class="section-heading"><div><h2>内部候选版本</h2><p>每个版本首次提交后不可覆盖；清单摘要用于审阅与追踪，不代表制品已入可信仓库。</p></div><span class="candidate-internal-tag">仅内部可见</span></div>

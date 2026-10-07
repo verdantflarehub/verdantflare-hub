@@ -16,6 +16,15 @@ const loadError = ref("");
 const selectedId = computed(() => (props.path.startsWith("/market/apps/") ? props.path.split("/").at(-1) : ""));
 const selectedApp = computed(() => apps.value.find((app) => app.id === selectedId.value));
 const listedOnly = computed(() => selectedApp.value?.channel === "Listed");
+const showcase = computed(() => selectedApp.value?.showcase || {});
+const detailFacts = computed(() => {
+  const app = selectedApp.value;
+  if (!app) return [];
+  return [
+    ["开发者", app.developer], ["分类", app.category], ["应用版本", app.version],
+    ["许可证", showcase.value.license], ["支持语言", showcase.value.languages], ["支持平台", showcase.value.platforms],
+  ].filter(([, value]) => value);
+});
 const categories = computed(() => ["全部", ...new Set(apps.value.map((app) => app.category))]);
 const filteredApps = computed(() => {
   const keyword = search.value.trim().toLowerCase();
@@ -59,36 +68,30 @@ onMounted(loadApps);
   <div v-else-if="selectedApp" class="page app-detail-page">
     <button class="back-button" @click="navigate('/market')"><AppIcon name="arrow" :size="16" />返回应用市场</button>
     <section class="app-detail-hero">
-      <div class="app-large-icon" :class="selectedApp.tone"><AppIcon :name="selectedApp.icon" :size="38" /></div>
+      <div class="app-large-icon" :class="selectedApp.tone"><img v-if="selectedApp.publicIconUrl" :src="selectedApp.publicIconUrl" :alt="`${selectedApp.name} 图标`" /><AppIcon v-else :name="selectedApp.icon" :size="38" /></div>
       <div class="app-detail-copy">
         <div class="detail-meta"><span>{{ selectedApp.category }}</span><span>{{ listedOnly ? 'Hub 目录已上架 · 交付包待登记' : `${selectedApp.channel} · v${selectedApp.version}` }}</span></div>
         <h1>{{ selectedApp.name }}</h1>
         <p>{{ selectedApp.summary }}</p>
+        <small v-if="selectedApp.developer" class="app-detail-developer">开发者 {{ selectedApp.developer }}</small>
         <div class="detail-actions">
-          <button v-if="!listedOnly" class="button primary" @click="navigate(`/experience?app=${encodeURIComponent(selectedApp.id)}`)"><AppIcon name="spark" :size="17" />查看体验入口</button>
+          <a v-if="showcase.websiteUrl" class="button secondary" :href="showcase.websiteUrl" target="_blank" rel="noopener noreferrer">访问官网</a>
+          <button v-if="!listedOnly" class="button secondary" @click="navigate(`/experience?app=${encodeURIComponent(selectedApp.id)}`)">查看体验状态</button>
         </div>
       </div>
       <StatusBadge :label="listedOnly ? '暂不可安装' : selectedApp.entitled ? '已授权' : '未授权'" />
     </section>
-
-    <div class="detail-grid">
-      <section class="content-panel">
-        <div class="section-heading"><div><h2>应用信息</h2><p>此处仅展示 Control 中的目录资料；运行能力尚未核验。</p></div></div>
-        <div class="feature-lines">
-          <div><AppIcon name="warning" :size="17" /><span><strong>{{ listedOnly ? '交付包待登记' : '在线运行待接入' }}</strong><small>{{ listedOnly ? 'Center 尚未登记可供 Station 校验的不可变应用版本。' : '尚无体验工作区、结果预览或下载能力。' }}</small></span></div>
-          <div><AppIcon :name="listedOnly ? 'warning' : 'check'" :size="17" /><span><strong>{{ listedOnly ? '暂不开放使用权益' : '组织应用权益' }}</strong><small>{{ listedOnly ? '目录上架仅供了解应用；不能安装或在线体验。' : selectedApp.entitled ? '当前组织已获得该应用权益。' : '应用可浏览，当前组织尚未获得使用权益。' }}</small></span></div>
-        </div>
-      </section>
-      <aside class="content-panel app-specs">
-        <h2>资源与限制</h2>
-        <dl><div><dt>目录状态</dt><dd>{{ listedOnly ? '已上架 · 待交付' : selectedApp.channel }}</dd></div><div><dt>应用版本</dt><dd>{{ selectedApp.version || '待登记' }}</dd></div><div><dt>推荐资源</dt><dd>{{ selectedApp.gpu || '待核验' }}</dd></div><div><dt>组织权益</dt><dd>{{ listedOnly ? '暂不开放' : selectedApp.entitled ? '已授权' : '未授权' }}</dd></div><div><dt>在线体验</dt><dd>{{ listedOnly ? '未开放' : '运行链路待接入' }}</dd></div></dl>
-      </aside>
+    <div class="market-detail-facts"><div><small>目录状态</small><strong>{{ listedOnly ? '资料已上架' : selectedApp.channel }}</strong></div><div><small>应用版本</small><strong>{{ selectedApp.version || '待登记' }}</strong></div><div><small>开发者</small><strong>{{ selectedApp.developer || '待补充' }}</strong></div><div><small>资源类型</small><strong>{{ selectedApp.gpu || '待核验' }}</strong></div><div><small>组织权益</small><strong>{{ listedOnly ? '暂不开放' : selectedApp.entitled ? '已授权' : '未授权' }}</strong></div></div>
+    <section v-if="showcase.screenshots?.length" class="market-gallery" aria-label="应用展示截图"><a v-for="(url, index) in showcase.screenshots" :key="url" :href="url" target="_blank" rel="noopener noreferrer"><img :src="url" :alt="`${selectedApp.name} 截图 ${index + 1}`" loading="lazy" /></a></section>
+    <div class="market-detail-layout">
+      <div class="market-detail-main">
+        <section class="content-panel"><h2>关于应用</h2><p class="market-detail-prose">{{ selectedApp.description || selectedApp.summary }}</p><h3 v-if="showcase.highlights?.length">功能亮点</h3><ul v-if="showcase.highlights?.length"><li v-for="item in showcase.highlights" :key="item">{{ item }}</li></ul></section>
+        <section v-if="showcase.whatsNew" class="content-panel"><h2>新功能</h2><p class="market-detail-prose">{{ showcase.whatsNew }}</p></section>
+        <section v-if="showcase.permissions?.length" class="content-panel"><h2>所需权限</h2><ul><li v-for="item in showcase.permissions" :key="item">{{ item }}</li></ul></section>
+        <section class="content-panel market-runtime-note"><h2>体验与运行</h2><p>{{ listedOnly ? '当前为应用介绍，尚无交付包和在线体验。' : '当前目录版本不代表已通过 Station 安装与运行验证；在线体验链路尚未接入。' }}</p></section>
+      </div>
+      <aside class="content-panel market-detail-info"><h2>信息</h2><dl><div v-for="[label, value] in detailFacts" :key="label"><dt>{{ label }}</dt><dd>{{ value }}</dd></div><div><dt>CPU</dt><dd>{{ selectedApp.cpu || '待核验' }}</dd></div><div><dt>内存</dt><dd>{{ selectedApp.memory || '待核验' }}</dd></div><div><dt>磁盘</dt><dd>{{ selectedApp.disk || '待核验' }}</dd></div><div><dt>GPU</dt><dd>{{ selectedApp.gpu || '待核验' }}</dd></div><div><dt>在线体验</dt><dd>未开放</dd></div></dl><div class="market-detail-links"><a v-if="showcase.docsUrl" :href="showcase.docsUrl" target="_blank" rel="noopener noreferrer">文档 ↗</a><a v-if="showcase.websiteUrl" :href="showcase.websiteUrl" target="_blank" rel="noopener noreferrer">网站 ↗</a><a v-if="showcase.sourceUrl" :href="showcase.sourceUrl" target="_blank" rel="noopener noreferrer">源代码 ↗</a></div></aside>
     </div>
-
-    <section v-if="!listedOnly" class="content-panel version-panel">
-      <div class="section-heading"><div><h2>当前版本</h2><p>当前组织只看到已授权的发布通道。</p></div></div>
-      <div class="release-line"><span class="release-dot" /><strong>{{ selectedApp.version }}</strong><span>{{ selectedApp.channel }}</span><StatusBadge label="已发布" /></div>
-    </section>
   </div>
 
   <div v-else-if="selectedId" class="page">

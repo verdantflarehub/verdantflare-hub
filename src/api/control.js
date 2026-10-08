@@ -1,10 +1,11 @@
 const controlBase = (import.meta.env.VITE_CONTROL_API_BASE || "/api/control").replace(/\/$/, "");
 
 const request = async (path, options = {}) => {
+  const headers = options.body instanceof FormData ? { ...options.headers } : { "Content-Type": "application/json", ...options.headers };
   const response = await fetch(`${controlBase}${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...options.headers },
     ...options,
+    headers,
   });
 
   if (response.status === 401) {
@@ -58,6 +59,11 @@ export const controlApi = {
   createManagedApp: (payload) => request("/ops/apps", { method: "POST", body: JSON.stringify(payload) }),
   getManagedApp: (id) => request(`/ops/apps/${encodeURIComponent(id)}`),
   updateManagedApp: (id, payload) => request(`/ops/apps/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  auditAppChart: (id, chart) => {
+    const body = new FormData();
+    body.append("chart", chart);
+    return request(`/ops/apps/${encodeURIComponent(id)}/chart-audits`, { method: "POST", body });
+  },
   listAppVersions: (id) => request(`/ops/apps/${encodeURIComponent(id)}/versions`),
   createAppVersion: (id, payload) => request(`/ops/apps/${encodeURIComponent(id)}/versions`, { method: "POST", body: JSON.stringify(payload) }),
   getAppVersion: (id, version) => request(`/ops/apps/${encodeURIComponent(id)}/versions/${encodeURIComponent(version)}`),

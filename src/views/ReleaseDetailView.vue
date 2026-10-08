@@ -21,6 +21,10 @@ const versionsLoading = ref(false);
 const versionsError = ref("");
 const versionSaving = ref(false);
 const versionError = ref("");
+const chartFile = ref(null);
+const chartAudit = ref(null);
+const chartAuditError = ref("");
+const chartAuditing = ref(false);
 const versionForm = ref({ version: "", upstreamVersion: "", publisher: "", sourceUrl: "", sourceRevision: "", licenseId: "", licenseUrl: "", manifest: "", dependencies: "[]", permissions: "[]" });
 const grants = ref([]);
 const grantsLoading = ref(false);
@@ -63,6 +67,9 @@ const load = async () => {
   form.value = null;
   versions.value = [];
   grants.value = [];
+  chartFile.value = null;
+  chartAudit.value = null;
+  chartAuditError.value = "";
   try {
     record.value = await controlApi.getManagedApp(appId.value);
     form.value = { ...record.value.app, showcase: { screenshots: [], highlights: [], permissions: [], ...record.value.app.showcase } };
@@ -90,6 +97,35 @@ const listingMissing = computed(() => {
     ["功能亮点（至少 1 条）", lines(highlightsText.value).length],
   ].filter(([, value]) => !value).map(([label]) => label);
 });
+const chartFlow = computed(() => Boolean(form.value?.groupId));
+const isHttpsUrl = (value) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && Boolean(url.hostname) && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+};
+const listingInvalid = computed(() => {
+  const screenshots = lines(screenshotsText.value);
+  const highlights = lines(highlightsText.value);
+  const permissions = lines(permissionsText.value);
+  const links = [form.value?.showcase?.websiteUrl, form.value?.showcase?.docsUrl, form.value?.showcase?.sourceUrl, form.value?.publicIconUrl].filter(Boolean);
+  return [
+    form.value?.name && [...form.value.name.trim()].length < 2 && "应用名称至少 2 个字符",
+    screenshots.length > 8 && "展示截图最多 8 张",
+    highlights.length > 12 && "功能亮点最多 12 条",
+    permissions.length > 12 && "权限最多 12 条",
+    screenshots.some((item) => !isHttpsUrl(item)) && "截图须使用 HTTPS URL",
+    links.some((item) => !isHttpsUrl(item)) && "官网、文档、源码和图标须使用 HTTPS URL",
+  ].filter(Boolean);
+});
+const canList = computed(() => !listingMissing.value.length && !listingInvalid.value.length && !form.value?.version);
+const releaseBlockers = computed(() => chartFlow.value ? [
+  "Chart 归档尚未保存为不可变制品，也没有与 AppVersion 绑定",
+  "镜像摘要、许可证及依赖尚无可信制品审核证据",
+  "隔离 Helm 渲染与目标 Station 安装、健康和功能验收尚未接入",
+] : []);
 
 const readManifestFile = async (event) => {
   const file = event.target.files?.[0];
@@ -103,6 +139,30 @@ const readManifestFile = async (event) => {
     versionError.value = "";
   } catch {
     versionError.value = "读取 Manifest 文件失败，请重试或粘贴 JSON";
+  }
+};
+
+const selectChartFile = (event) => {
+  chartFile.value = event.target.files?.[0] || null;
+  chartAudit.value = null;
+  chartAuditError.value = "";
+};
+
+const auditChart = async () => {
+  if (!chartFile.value) return;
+  chartAuditError.value = "";
+  chartAudit.value = null;
+  if (chartFile.value.size > 2 * 1024 * 1024) {
+    chartAuditError.value = "Chart 文件不能超过 2 MiB";
+    return;
+  }
+  chartAuditing.value = true;
+  try {
+    chartAudit.value = await controlApi.auditAppChart(appId.value, chartFile.value);
+  } catch (cause) {
+    chartAuditError.value = cause instanceof Error ? cause.message : "Chart 检查失败";
+  } finally {
+    chartAuditing.value = false;
   }
 };
 
@@ -180,8 +240,12 @@ const revokeGrant = async (grant) => {
 };
 
 const save = async (channel = form.value.channel) => {
-  if (channel === "Listed" && listingMissing.value.length) {
-    error.value = `Hub 目录上架还缺：${listingMissing.value.join("、")}`;
+  if (channel === "Listed" && (listingMissing.value.length || listingInvalid.value.length || form.value.version)) {
+    error.value = `Hub 目录上架还缺：${[...listingMissing.value, ...listingInvalid.value, form.value.version && "清空目录展示版本"].filter(Boolean).join("、")}`;
+    return;
+  }
+  if (chartFlow.value && ["Preview", "Stable"].includes(channel) && !["Preview", "Stable"].includes(record.value.app.channel)) {
+    error.value = "当前只有 Chart 静态预检，缺少可信制品、渲染与 Station 验证证据，不能发布 Preview 或 Stable。";
     return;
   }
   saving.value = true;
@@ -231,18 +295,17 @@ const save = async (channel = form.value.channel) => {
       <section class="detail-command-bar internal-detail">
         <div class="app-large-icon" :class="record.app.tone"><AppIcon :name="record.app.icon || 'market'" :size="31" /></div>
         <div class="detail-title-copy"><span class="page-overline internal-overline">APP RELEASE</span><h1>{{ record.app.name }} · {{ record.app.version || '版本待登记' }}</h1><p>应用 ID：<code>{{ record.app.id }}</code> · 已授权 {{ record.release.audience }}</p></div>
-        <div class="detail-command-actions"><StatusBadge :label="record.app.channel === 'Preview' ? '目录预览' : record.release.status" /><button v-if="record.app.channel === 'Listed' || record.app.publicVisible" class="button secondary" @click="navigate(`/market/apps/${encodeURIComponent(appId)}`)">查看已上架详情</button><button class="button secondary" :disabled="saving" @click="save()">保存更改</button><button v-if="!record.app.version" class="button primary" :disabled="saving || record.app.channel === 'Listed' || listingMissing.length" @click="save('Listed')">上架 Hub 目录</button><button v-else class="button primary" :disabled="saving || record.app.channel === 'Preview'" @click="save('Preview')">加入 Preview 目录</button></div>
+        <div class="detail-command-actions"><StatusBadge :label="record.app.channel === 'Preview' ? '目录预览' : record.release.status" /><button v-if="record.app.channel === 'Listed' || record.app.publicVisible" class="button secondary" @click="navigate(`/market/apps/${encodeURIComponent(appId)}`)">查看已上架详情</button><button class="button secondary" :disabled="saving" @click="save()">保存资料</button><button v-if="record.app.channel === 'Candidate'" class="button primary" :disabled="saving || !canList" @click="save('Listed')">仅上架 Hub 资料</button></div>
       </section>
 
       <section class="content-panel release-readiness-panel">
         <div class="section-heading"><div><h2>发布检查</h2><p>目录展示、交付包和真实运行分别检查；填写展示字段不会证明应用可运行。</p></div></div>
-        <div class="readiness-grid"><div><strong>Hub 资料上架</strong><p>{{ listingMissing.length ? `缺少：${listingMissing.join('、')}` : '展示必填项已齐，可上架 Hub 目录。' }}</p></div><div><strong>可交付版本</strong><p>{{ versions.some((item) => item.version === form.version) ? '已登记候选清单；制品与安装仍待审计。' : '需登记不可变 Manifest、镜像摘要、来源和许可，并选择版本。' }}</p></div><div><strong>实际运行验证</strong><p>尚未接入 Station 安装、启动、健康检查与功能调用回报；当前不能判定“可运行”。</p></div></div>
+        <div class="readiness-grid"><div><strong>01 · 资料上架</strong><p>{{ listingMissing.length || listingInvalid.length ? `还需处理：${[...listingMissing, ...listingInvalid].join('、')}` : '展示必填项已齐；可仅上架资料。' }}</p></div><div><strong>02 · Chart 预检</strong><p>{{ chartAudit ? (chartAudit.staticChecksPassed ? '本次上传的静态规则通过；报告仅在本页临时显示。' : '本次上传存在阻断项；请查看报告。') : '请上传 Helm Chart 归档并查看逐项报告。' }}</p></div><div><strong>03 · 版本发布</strong><p>可信制品、隔离渲染和 Station 验证尚未接入；不可发布 Preview / Stable，也不能声称可运行。</p></div></div>
       </section>
 
-      <div class="detail-two-column release-detail-grid">
-        <section class="content-panel manifest-panel">
-          <div class="section-heading"><div><h2>应用目录资料</h2><p>这里保存的是 Market 展示内容，不是安装清单或 Station 运行记录。</p></div></div>
-          <div class="two-column-form"><label class="form-field"><span>应用名称 *</span><input v-model.trim="form.name" /></label><label class="form-field"><span>Station 主分组</span><input :value="form.groupId || '旧版目录未登记'" disabled /></label><label class="form-field"><span>目录展示版本</span><select v-if="form.groupId" v-model="form.version"><option value="">待登记</option><option v-for="item in versions" :key="item.version" :value="item.version">{{ item.version }}</option></select><input v-else v-model.trim="form.version" /></label><label class="form-field"><span>市场分类 *</span><input v-model.trim="form.category" /></label><label class="form-field"><span>推荐资源</span><input v-model.trim="form.gpu" /></label><label class="form-field"><span>体验时长说明</span><input v-model.trim="form.duration" /></label></div>
+      <section class="content-panel manifest-panel">
+          <div class="section-heading"><div><h2>第一步 · 应用目录资料</h2><p>星号字段为资料上架必填；资源、镜像和部署条件以受控 Chart 为准。</p></div></div>
+          <div class="two-column-form"><label class="form-field"><span>应用名称 *</span><input v-model.trim="form.name" /></label><label class="form-field"><span>Station 主分组</span><input :value="form.groupId || '旧版目录未登记'" disabled /></label><label class="form-field"><span>目录展示版本</span><input v-if="chartFlow" :value="record.app.version || '待可信 Chart 版本登记'" disabled /><input v-else v-model.trim="form.version" /></label><label class="form-field"><span>市场分类 *</span><input v-model.trim="form.category" /></label><label v-if="!chartFlow" class="form-field"><span>旧版推荐资源</span><input v-model.trim="form.gpu" /></label><label v-if="!chartFlow" class="form-field"><span>旧版体验时长说明</span><input v-model.trim="form.duration" /></label></div>
           <label class="form-field"><span>一句话简介 *</span><textarea v-model.trim="form.summary" rows="3" /></label>
           <div class="section-heading"><div><h2>客户详情展示</h2><p>按截图组织展示内容；每行一条截图、功能或权限。图片与外部链接使用 HTTPS。</p></div></div>
           <label class="form-field"><span>开发者 *</span><input v-model.trim="form.developer" /></label>
@@ -258,13 +321,27 @@ const save = async (channel = form.value.channel) => {
           <label class="form-field"><span>公开图标 URL（HTTPS，可选）</span><input v-model.trim="form.publicIconUrl" type="url" /></label>
           </details>
         </section>
-        <aside class="content-panel release-controls">
-          <div class="section-heading"><div><h2>发布通道</h2><p>Listed 仅在 Hub 展示应用资料，不授予权益或安装能力。</p></div></div>
-          <label class="form-field"><span>通道</span><select v-model="form.channel"><option>Candidate</option><option :disabled="Boolean(form.version)">Listed</option><option :disabled="!form.version">Preview</option><option :disabled="record.release.validation !== '6 / 6'">Stable</option><option>Paused</option></select></label>
-          <label class="form-field"><span>WWW 公开</span><select v-model="form.publicVisible" :disabled="!['Preview', 'Stable'].includes(form.channel)"><option :value="false">不公开</option><option :value="true">公开目录资料</option></select></label>
-          <div class="release-warning"><AppIcon name="warning" :size="18" /><span>当前未接入 Station 验证。Preview 只改变 Control 目录与组织可见范围，不部署应用，也不证明应用可运行；Stable 暂不可发布。</span></div>
+
+      <section class="content-panel chart-audit-panel">
+        <div class="section-heading"><div><h2>第二步 · 上传 Helm Chart</h2><p>支持 Helm 打包的 .tgz 文件，最多 2 MiB。Control 仅读取并检查本次上传，不保存为可安装版本。</p></div><span class="candidate-internal-tag">仅内部预检</span></div>
+        <p class="candidate-help">归档必备：Chart.yaml（v2/application、名称与应用 ID 一致、固定版本和 appVersion）、values.yaml、Deployment、ClusterIP Service、工作卷、GPU 请求与上限、固定镜像标签及 SHA-256。禁止 Secret、公网入口和子 Chart 依赖；目标 Station 仍需单独验收。</p>
+        <div class="chart-audit-actions"><input type="file" accept=".tgz,application/gzip" aria-label="选择 Helm Chart 归档" @change="selectChartFile" /><button class="button secondary" :disabled="!chartFile || chartAuditing" @click="auditChart">{{ chartAuditing ? '正在检查…' : '上传并检查' }}</button></div>
+        <p v-if="chartAuditError" class="form-error" role="alert">{{ chartAuditError }}</p>
+        <div v-if="chartAudit" class="chart-audit-report">
+          <p><strong>{{ chartAudit.staticChecksPassed ? '静态检查通过，尚不可部署' : '存在部署阻断项' }}</strong> · {{ chartAudit.chartName || '名称未识别' }} · Chart {{ chartAudit.chartVersion || '版本未识别' }} · App {{ chartAudit.appVersion || '版本未识别' }}</p>
+          <p>本次归档 SHA-256：<code>{{ chartAudit.archiveSha256 }}</code></p>
+          <ul><li v-for="check in chartAudit.checks" :key="check.code"><strong :class="`chart-audit-${check.status}`">{{ check.status === 'passed' ? '通过' : check.status === 'blocked' ? '阻断' : '待验证' }}</strong> · {{ check.detail }}</li></ul>
+          <p class="candidate-help">此报告不会保存 Chart，也不会自动登记候选版本、发布或安装。请保留归档和摘要供后续可信制品流程核对。</p>
+        </div>
+      </section>
+
+      <aside class="content-panel release-controls">
+          <div class="section-heading"><div><h2>第三步 · 发布通道</h2><p>Listed 仅在 Hub 展示资料，不授予权益或安装能力。</p></div></div>
+          <label class="form-field"><span>通道</span><select v-model="form.channel"><option>Candidate</option><option :disabled="Boolean(form.version)">Listed</option><option v-if="!chartFlow || ['Preview', 'Stable'].includes(record.app.channel)">Preview</option><option v-if="!chartFlow || record.app.channel === 'Stable'">Stable</option><option>Paused</option></select></label>
+          <label v-if="!chartFlow || ['Preview', 'Stable'].includes(record.app.channel)" class="form-field"><span>WWW 公开</span><select v-model="form.publicVisible" :disabled="!['Preview', 'Stable'].includes(form.channel)"><option :value="false">不公开</option><option :value="true">公开目录资料</option></select></label>
+          <ul v-if="chartFlow" class="release-blocker-list"><li v-for="item in releaseBlockers" :key="item">{{ item }}</li></ul>
+          <div class="release-warning"><AppIcon name="warning" :size="18" /><span>当前 Chart 流程最多完成资料上架与静态预检。待可信包、目标环境和真实运行证据接通后，才能开放版本发布。</span></div>
         </aside>
-      </div>
 
       <section class="content-panel release-showcase-preview">
         <div class="section-heading"><div><h2>客户详情内容预览</h2><p>直接使用当前未保存的表单内容；发布后客户页面读取 Control 已保存的记录。</p></div></div>
@@ -274,8 +351,10 @@ const save = async (channel = form.value.channel) => {
         <ul v-if="lines(highlightsText).length"><li v-for="item in lines(highlightsText)" :key="item">{{ item }}</li></ul>
       </section>
 
+      <details v-if="!chartFlow || versions.length" class="legacy-release-tools">
+        <summary>旧版 Manifest 候选与内部设备授权{{ versions.length ? ` · ${versions.length} 个历史版本` : '' }}</summary>
       <section class="content-panel candidate-version-panel">
-        <div class="section-heading"><div><h2>内部候选版本</h2><p>每个版本首次提交后不可覆盖；清单摘要用于审阅与追踪，不代表制品已入可信仓库。</p></div><span class="candidate-internal-tag">仅内部可见</span></div>
+        <div class="section-heading"><div><h2>旧版 Manifest 候选记录</h2><p>现行 v1 候选版本接口仍使用 Manifest；Chart 与它的映射待包契约定版，二者尚未关联。</p></div><span class="candidate-internal-tag">仅内部可见</span></div>
         <div class="release-warning"><AppIcon name="warning" :size="18" /><span>当前只记录发布者声明及 Manifest。制品下载、签名、Station 同步、预检与安装回报均未接入；这里的版本不能作为客户可安装应用。</span></div>
         <p v-if="versionsLoading" class="candidate-help">正在加载候选版本…</p>
         <div v-if="versionsError" class="ops-note"><AppIcon name="warning" :size="18" /><div><strong>版本记录暂不可用</strong><p>{{ versionsError }}</p></div><button class="button secondary" @click="loadVersions">重试</button></div>
@@ -299,7 +378,7 @@ const save = async (channel = form.value.channel) => {
             </dl>
           </details>
         </div>
-        <form class="candidate-version-form" @submit.prevent="createVersion">
+        <form v-if="!chartFlow" class="candidate-version-form" @submit.prevent="createVersion">
           <div class="section-heading"><div><h3>登记候选版本</h3><p>请提交固定来源 revision、许可证、版本化镜像摘要和 v1 Manifest。</p></div></div>
           <div class="two-column-form">
             <label class="form-field"><span>版本号 *</span><input v-model.trim="versionForm.version" required placeholder="1.0.0" pattern="[0-9]+\.[0-9]+\.[0-9]+" /></label>
@@ -322,7 +401,7 @@ const save = async (channel = form.value.channel) => {
       <section class="content-panel station-grants-panel">
         <div class="section-heading"><div><h2>内部测试 Station 分发</h2><p>仅授权设备证书读取该应用的候选版本索引与不可变 Manifest；不提供镜像下载或安装命令。</p></div><span class="candidate-internal-tag">mTLS · 内部</span></div>
         <div class="release-warning"><AppIcon name="warning" :size="18" /><span>Control 的独立 mTLS 监听器需先配置受信 CA 与服务端证书。设备 ID 必须与客户端证书的 SPIFFE URI 一致；这里只录入证书 SHA-256 指纹，不上传私钥或证书。</span></div>
-        <form v-if="versions.length" class="station-grant-form" @submit.prevent="createGrant">
+        <form v-if="!chartFlow && versions.length" class="station-grant-form" @submit.prevent="createGrant">
           <div class="two-column-form">
             <label class="form-field"><span>候选版本 *</span><select v-model="grantForm.version" required><option value="">选择已冻结版本</option><option v-for="item in versions" :key="item.version" :value="item.version">{{ item.version }}</option></select></label>
             <label class="form-field"><span>组织</span><input value="org_verdantflare · 内部测试" disabled /></label>
@@ -333,7 +412,7 @@ const save = async (channel = form.value.channel) => {
           <p class="candidate-help">有效期最多 30 天；如需更换证书，先撤销原授权再登记新指纹。登记不会证明制品可运行。</p>
           <button class="button secondary" type="submit" :disabled="grantSaving || grantsLoading">{{ grantSaving ? '正在登记…' : '授权读取候选清单' }}</button>
         </form>
-        <p v-else class="candidate-empty">请先登记至少一个候选版本，才能授予设备读取权限。</p>
+        <p v-else class="candidate-empty">Chart 流程尚未接入候选制品分发；旧版 Manifest 授权只供现有流程查阅。</p>
         <div v-if="grantsError" class="ops-note" role="alert"><AppIcon name="warning" :size="18" /><div><strong>设备授权操作未完成</strong><p>{{ grantsError }}</p></div><button class="button secondary" @click="loadGrants">刷新</button></div>
         <p v-if="grantsLoading" class="candidate-help">正在加载授权记录…</p>
         <div v-else-if="!grants.length" class="candidate-empty">尚无内部 Station 授权。</div>
@@ -342,6 +421,7 @@ const save = async (channel = form.value.channel) => {
           <div class="station-grant-actions"><span :class="grantActive(grant) ? 'station-grant-active' : 'station-grant-inactive'">{{ grant.revoked ? '已撤销' : grantActive(grant) ? '有效' : '已过期' }}</span><button v-if="grantActive(grant)" class="button secondary" :disabled="grantSaving" @click="revokeGrant(grant)">撤销</button></div>
         </div>
       </section>
+      </details>
 
       <section class="content-panel validation-panel"><div class="section-heading"><div><h2>Station 验证</h2><p>尚未接入真实验证结果；Control 中的历史计数不作为部署或运行证明。</p></div><strong>未接入</strong></div></section>
     </template>

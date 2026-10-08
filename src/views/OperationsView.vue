@@ -19,6 +19,8 @@ const planFilter = ref("全部");
 const showCreate = ref(false);
 const saving = ref(false);
 const form = ref({ id: "", name: "", shortName: "", groupId: "image", category: "", summary: "", developer: "", plan: "Pilot" });
+const appBasicsComplete = computed(() => /^[a-z0-9][a-z0-9-]{1,62}$/.test(form.value.id)
+  && [...form.value.name].length >= 2 && Boolean(form.value.groupId && form.value.category && form.value.summary));
 
 const load = async () => {
   loading.value = true;
@@ -63,7 +65,7 @@ const create = async () => {
         tone: "mint",
       });
       showCreate.value = false;
-      emit("toast", "应用目录草稿已保存；请补充独立的候选版本资料");
+      emit("toast", "应用基本信息已保存；下一步上传 Helm Chart 预检");
       navigate(`/ops/apps/${record.app.id}/releases`);
     } else {
       const record = await controlApi.createManagedOrganization({ name: form.value.name, shortName: form.value.shortName, plan: form.value.plan });
@@ -105,9 +107,9 @@ const create = async () => {
         <section class="modal-card invite-modal">
           <header><div><span class="page-overline">{{ section === 'apps' ? 'NEW APP RECORD' : 'NEW ORGANIZATION' }}</span><h2>{{ section === 'apps' ? '新建应用资料' : '新建客户组织' }}</h2></div><button class="icon-button" aria-label="关闭弹窗" @click="showCreate = false"><AppIcon name="close" /></button></header>
           <template v-if="section === 'apps'">
-            <p class="candidate-help">先建立 Center 应用身份；真实版本、Manifest、镜像、依赖和许可在详情页登记。此草稿不会提供给 Station 安装。</p>
-            <label class="form-field"><span>应用 ID *</span><input v-model.trim="form.id" placeholder="例如 comfyui" /></label>
-            <label class="form-field"><span>应用名称 *</span><input v-model.trim="form.name" /></label>
+            <p class="candidate-help">第一步填写应用基本信息。星号为创建必填；创建后补齐客户展示资料，再上传 Chart 预检。静态报告不会发布或安装应用。</p>
+            <label class="form-field"><span>应用 ID *（2–63 位小写字母、数字或连字符）</span><input v-model.trim="form.id" placeholder="例如 comfyui" /></label>
+            <label class="form-field"><span>应用名称 *（至少 2 个字符）</span><input v-model.trim="form.name" /></label>
             <label class="form-field"><span>Station 主分组 *</span><select v-model="form.groupId"><option value="image">Image</option><option value="music">Music</option><option value="video">Video</option></select></label>
             <label class="form-field"><span>市场分类 *</span><input v-model.trim="form.category" placeholder="例如 图像创作" /></label>
             <label class="form-field"><span>开发者／维护方</span><input v-model.trim="form.developer" placeholder="应用展示资料；版本发布者另行登记" /></label>
@@ -118,7 +120,7 @@ const create = async () => {
             <label class="form-field"><span>简称（可选）</span><input v-model.trim="form.shortName" /></label>
             <label class="form-field"><span>套餐</span><select v-model="form.plan"><option>Pilot</option><option>Studio</option><option>Enterprise</option></select></label>
           </template>
-          <footer><button class="button secondary" @click="showCreate = false">取消</button><button class="button primary" :disabled="saving || !form.name || (section === 'apps' && (!form.id || !form.category || !form.summary))" @click="create">{{ saving ? '正在保存…' : '创建' }}</button></footer>
+          <footer><button class="button secondary" @click="showCreate = false">取消</button><button class="button primary" :disabled="saving || (section === 'apps' ? !appBasicsComplete : !form.name)" @click="create">{{ saving ? '正在保存…' : '创建' }}</button></footer>
         </section>
       </div>
     </Transition>

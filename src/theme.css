@@ -57,6 +57,7 @@ html[data-theme="light"] body,
 html[data-theme="light"] .hub-shell,
 html[data-theme="light"] .context-state { background: var(--ink); color: var(--paper); }
 html[data-theme="light"] .hub-side { background: #f8faf8; }
+html[data-theme="light"] .topbar { background: rgba(250, 252, 250, .94); }
 html[data-theme="light"] .hub-side .nav-section-label,
 html[data-theme="light"] .page-overline { color: #66796a; }
 html[data-theme="light"] .hub-side .side-navigation button { color: #455a4b; }
@@ -98,6 +99,27 @@ html[data-theme="light"] .readiness-grid > div { background: #f7faf7; }
 html[data-theme="light"] .app-card:hover,
 html[data-theme="light"] .dashboard-list > button:hover,
 html[data-theme="light"] .table-row:hover { background: #f2f8f3; }
+html[data-theme="light"] .app-detail-hero,
+html[data-theme="light"] .dashboard-feature { border-color: var(--line); background: linear-gradient(120deg, #fff, #edf5ee); }
+html[data-theme="light"] .resource-rail,
+html[data-theme="light"] .overview-lists section { border-color: var(--line); background: #fff; }
+html[data-theme="light"] .toast-message { border-color: rgba(8, 126, 96, .24); background: #fff; color: #18241f; }
+/* CatalogCard owns its own scoped dark styles, so both market grids need explicit light surfaces. */
+html[data-theme="light"] .catalog-card {
+  border-color: var(--line);
+  background: #fff;
+  color: var(--paper);
+  box-shadow: 0 10px 32px rgba(21, 35, 30, .05);
+}
+html[data-theme="light"] .catalog-card:hover,
+html[data-theme="light"] .catalog-card:focus-within { border-color: rgba(8, 126, 96, .4); background: #f7fcf8; }
+html[data-theme="light"] .catalog-card.is-highlighted { border-color: rgba(8, 126, 96, .6); }
+html[data-theme="light"] .catalog-card-icon { border-color: rgba(21, 35, 30, .14); background: #eaf4ed; color: #087e60; }
+html[data-theme="light"] .catalog-card-tags span { border-color: rgba(21, 35, 30, .13); background: #eef5ef; color: #405a48; }
+html[data-theme="light"] .catalog-card-actions button { border-color: rgba(21, 35, 30, .2); background: #f5f8f5; color: #25432f; }
+html[data-theme="light"] .catalog-card-actions button:hover { border-color: rgba(8, 126, 96, .4); background: #e9f4ec; }
+html[data-theme="light"] .catalog-card-actions button.primary { border-color: rgba(8, 126, 96, .4); background: #e6f3ea; color: #096448; }
+html[data-theme="light"] .catalog-card-actions button.primary:hover { background: #d8eddf; }
 html[data-theme="light"] .table-head,
 html[data-theme="light"] .app-version-head { background: #edf3ee; color: #53665a; }
 html[data-theme="light"] .table-row,
@@ -155,6 +177,9 @@ html[data-theme="light"] .ops-note,
 html[data-theme="light"] .context-note { background: #fff7e9; }
 html[data-theme="light"] .code-quickstart,
 html[data-theme="light"] .playground-code { background: #142019; color: #f2f5f2; }
+html[data-theme="light"] .playground-code .code-tabs { border-bottom-color: rgba(255, 255, 255, .18); }
+html[data-theme="light"] .playground-code .code-tabs > button { border-color: rgba(255, 255, 255, .16); background: #26372b; color: #dcece0; }
+html[data-theme="light"] .playground-code .code-tabs > button:is(:hover, .active) { border-color: rgba(137, 224, 168, .5); background: #335340; color: #f4fff7; }
 html[data-theme="light"] .code-quickstart .code-heading,
 html[data-theme="light"] .playground-code .code-heading { color: #f2f5f2; }
 html[data-theme="light"] .result-empty > div { background: #eaf3eb; }

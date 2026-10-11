@@ -462,6 +462,13 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .model-detail-form .two-column-form { margin-bottom: 0; }
 .model-detail-form .two-column-form + .form-field { margin-top: 16px; }
 .model-admin-help { margin: 18px 0 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.model-icon-upload { display: flex; align-items: center; gap: 16px; margin-top: 18px; }
+.model-icon-preview { width: 60px; height: 60px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 9px; background: rgba(76, 227, 154, .07); color: var(--green); }
+.model-icon-preview img { width: 44px; height: 44px; object-fit: contain; }
+.model-icon-upload-fields { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; min-width: 0; }
+.model-icon-upload-fields .form-field { margin: 0; }
+.model-icon-upload-fields input { max-width: min(100%, 360px); }
+.model-icon-upload-fields .button { min-height: 44px; }
 .model-detail-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .market-manifest-grid dl { margin: 0; }.market-manifest-grid dl div { min-height: 45px; display: grid; grid-template-columns: 100px 1fr; align-items: center; border-bottom: 1px solid var(--line); }
 .market-manifest-grid dt, .market-manifest-grid > div > span { color: var(--muted); font-size: 10px; }.market-manifest-grid dd { min-width: 0; margin: 0; font-size: 11px; word-break: break-word; }

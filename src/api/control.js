@@ -53,6 +53,11 @@ export const controlApi = {
   getBilling: () => request("/settings/billing"),
   listReleases: () => request("/ops/releases"),
   listManagedModels: () => request("/ops/models"),
+  uploadModelProviderIcon: (icon) => {
+    const body = new FormData();
+    body.append("icon", icon);
+    return request("/ops/model-icons", { method: "POST", body });
+  },
   listGatewayModels: () => request("/ops/gateway-models"),
   createManagedModel: (payload) => request("/ops/models", { method: "POST", body: JSON.stringify(payload) }),
   updateManagedModel: (id, payload) => request(`/ops/models/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload) }),

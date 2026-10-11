@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
 import { navigate } from "../router";
@@ -16,6 +16,11 @@ const error = ref("");
 const search = ref("");
 const draft = ref(null);
 const categoriesText = ref("");
+const iconFile = ref(null);
+const iconFileInput = ref(null);
+const uploadingIcon = ref(false);
+const iconPreviewFailed = ref(false);
+watch(() => draft.value?.providerIconUrl, () => { iconPreviewFailed.value = false; });
 
 const routeId = computed(() => {
   if (props.path === "/ops/models") return null;
@@ -36,6 +41,32 @@ const blank = () => ({ id: "", name: "", provider: "", providerIconUrl: "", summ
 const select = (model) => {
   draft.value = model ? { ...model, experienceMode: model.experienceMode || "" } : blank();
   categoriesText.value = (model?.categories || []).join("、");
+  iconFile.value = null;
+};
+const selectIconFile = (event) => {
+  const file = event.target.files?.[0] || null;
+  if (file && (!["image/png", "image/jpeg"].includes(file.type) || file.size > 1024 * 1024 || file.size === 0)) {
+    iconFile.value = null;
+    event.target.value = "";
+    error.value = "请选择不超过 1 MiB 的 PNG 或 JPEG 图片";
+    return;
+  }
+  iconFile.value = file;
+  error.value = "";
+};
+const uploadIcon = async () => {
+  if (!iconFile.value || uploadingIcon.value) return;
+  uploadingIcon.value = true;
+  error.value = "";
+  try {
+    const result = await controlApi.uploadModelProviderIcon(iconFile.value);
+    draft.value.providerIconUrl = result.providerIconUrl;
+    iconFile.value = null;
+    if (iconFileInput.value) iconFileInput.value.value = "";
+    emit("toast", "图标已上传；保存模型资料后才会替换市场头像");
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : "图标上传失败";
+  } finally { uploadingIcon.value = false; }
 };
 const gatewayState = (model) => gatewayLoading.value ? "核验中" : gatewayError.value
   ? "待核验" : gatewayModels.value.includes(model.id) ? "已列出" : "未列出";
@@ -102,7 +133,7 @@ onMounted(load);
         <p v-if="isDetail">模型 ID 必须与 new-api 一致；公开资料、价格和在线体验在此配置。</p>
         <p v-else>管理列表包含草稿与未列出记录；<span class="keep-phrase">WWW 与 Hub</span> 仅公开已上架且网关列出的模型。公开报价不代表最终结算价格。</p>
       </div>
-      <button v-if="isDetail && draft" class="button primary" type="button" :disabled="saving || !canSave" @click="save">{{ saving ? "正在保存…" : "保存模型资料" }}</button>
+      <button v-if="isDetail && draft" class="button primary" type="button" :disabled="saving || uploadingIcon || !canSave" @click="save">{{ saving ? "正在保存…" : "保存模型资料" }}</button>
       <button v-else-if="!isDetail" class="button primary" type="button" @click="navigate('/ops/models/new')"><AppIcon name="plus" :size="17" />新建草稿</button>
     </header>
 
@@ -136,9 +167,14 @@ onMounted(load);
           <label class="form-field"><span>模型 ID</span><input v-model.trim="draft.id" :disabled="!isNew" list="gateway-model-options" required /><datalist id="gateway-model-options"><option v-for="id in gatewayModels" :key="id" :value="id" /></datalist></label>
           <label class="form-field"><span>名称</span><input v-model.trim="draft.name" required /></label>
           <label class="form-field"><span>提供方</span><input v-model.trim="draft.provider" required /></label>
-          <label class="form-field"><span>提供方官方图标 URL（可选）</span><input v-model.trim="draft.providerIconUrl" type="url" placeholder="https://example.com/logo.png" /></label>
+          <label class="form-field"><span>提供方图标地址（可选）</span><input v-model.trim="draft.providerIconUrl" type="text" inputmode="url" placeholder="https://example.com/logo.png" /></label>
           <label class="form-field"><span>类别（用顿号分隔）</span><input v-model="categoriesText" required /></label>
         </div>
+        <div class="model-icon-upload">
+          <span class="model-icon-preview" aria-hidden="true"><img v-if="draft.providerIconUrl && !iconPreviewFailed" :src="draft.providerIconUrl" alt="" @error="iconPreviewFailed = true" /><AppIcon v-else name="models" :size="24" /></span>
+          <div class="model-icon-upload-fields"><label class="form-field"><span>或上传图片</span><input ref="iconFileInput" type="file" accept="image/png,image/jpeg" aria-label="选择供应商图标" @change="selectIconFile" /></label><button class="button secondary" type="button" :disabled="!iconFile || uploadingIcon" @click="uploadIcon">{{ uploadingIcon ? "正在上传…" : "上传图标" }}</button></div>
+        </div>
+        <p class="model-admin-help">支持 PNG、JPEG，不超过 1 MiB；上传图片会公开展示。也可以直接填入官方 HTTPS 图片地址。上传后请保存模型资料。</p>
         <label class="form-field"><span>公开简介</span><textarea v-model.trim="draft.summary" rows="3" required /></label>
       </section>
 
@@ -164,7 +200,7 @@ onMounted(load);
         <p class="model-admin-help">仅为支持 OpenAI Chat Completions 的文本模型开启在线体验；每次调用使用组织真实 API 额度。视频和图像模型需独立体验流程。</p>
         <p v-if="draft.id && !gatewayLoading && !gatewayError && !gatewayModels.includes(draft.id)" class="ops-note">该模型未出现在当前网关 Token 的模型列表；上架前请确认渠道、分组与计费配置。</p>
       </section>
-      <div class="model-detail-actions"><button class="button secondary" type="button" @click="navigate('/ops/models')">返回列表</button><button class="button primary" type="submit" :disabled="saving || !canSave">{{ saving ? "正在保存…" : "保存模型资料" }}</button></div>
+      <div class="model-detail-actions"><button class="button secondary" type="button" @click="navigate('/ops/models')">返回列表</button><button class="button primary" type="submit" :disabled="saving || uploadingIcon || !canSave">{{ saving ? "正在保存…" : "保存模型资料" }}</button></div>
     </form>
     <p v-else-if="isDetail && loading">正在读取模型资料…</p>
   </div>

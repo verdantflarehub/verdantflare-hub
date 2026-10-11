@@ -48,6 +48,9 @@ export const controlApi = {
   getOrganization: () => request("/settings/organization"),
   updateOrganization: (payload) => request("/settings/organization", { method: "PATCH", body: JSON.stringify(payload) }),
   listMembers: () => request("/settings/members"),
+  listCurrentOrganizationGuests: (params = {}) => request(`/settings/guests?${new URLSearchParams(params)}`),
+  bindCurrentOrganizationMember: (payload) => request("/settings/members/bind", { method: "POST", body: JSON.stringify(payload) }),
+  transferCurrentOrganizationMember: (id, payload) => request(`/settings/members/${encodeURIComponent(id)}/transfer`, { method: "POST", body: JSON.stringify(payload) }),
   inviteMember: (payload) => request("/settings/members", { method: "POST", body: JSON.stringify(payload) }),
   updateMember: (id, payload) => request(`/settings/members/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload) }),
   getBilling: () => request("/settings/billing"),
@@ -84,5 +87,6 @@ export const controlApi = {
   createManagedMember: (organizationId, payload) => request(`/ops/organizations/${encodeURIComponent(organizationId)}/members`, { method: "POST", body: JSON.stringify(payload) }),
   listGuests: (params = {}) => request(`/ops/guests?${new URLSearchParams(params)}`),
   bindManagedMember: (organizationId, payload) => request(`/ops/organizations/${encodeURIComponent(organizationId)}/members/bind`, { method: "POST", body: JSON.stringify(payload) }),
+  transferManagedMember: (organizationId, memberId, payload) => request(`/ops/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(memberId)}/transfer`, { method: "POST", body: JSON.stringify(payload) }),
   updateManagedMember: (organizationId, memberId, payload) => request(`/ops/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(memberId)}`, { method: "PATCH", body: JSON.stringify(payload) }),
 };

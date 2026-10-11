@@ -110,7 +110,7 @@ const create = async () => {
             <p class="candidate-help">第一步填写应用基本信息。星号为创建必填；创建后补齐客户展示资料，再上传 Chart 预检。静态报告不会发布或安装应用。</p>
             <label class="form-field"><span>应用 ID *（2–63 位小写字母、数字或连字符）</span><input v-model.trim="form.id" placeholder="例如 comfyui" /></label>
             <label class="form-field"><span>应用名称 *（至少 2 个字符）</span><input v-model.trim="form.name" /></label>
-            <label class="form-field"><span>Station 主分组 *</span><select v-model="form.groupId"><option value="image">Image</option><option value="music">Music</option><option value="video">Video</option></select></label>
+            <label class="form-field"><span>应用主分组 *</span><select v-model="form.groupId"><option value="image">Image</option><option value="music">Music</option><option value="video">Video</option><option value="agent">Agent（仅目录）</option></select></label>
             <label class="form-field"><span>市场分类 *</span><input v-model.trim="form.category" placeholder="例如 图像创作" /></label>
             <label class="form-field"><span>开发者／维护方</span><input v-model.trim="form.developer" placeholder="应用展示资料；版本发布者另行登记" /></label>
             <label class="form-field"><span>简介 *</span><input v-model.trim="form.summary" placeholder="一句话说明用途，不填写安装承诺" /></label>

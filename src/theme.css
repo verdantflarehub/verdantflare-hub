@@ -1,9 +1,9 @@
-/* A single corner control stays available in loading, guest and authenticated states. */
+/* A single bottom-left control stays available in loading, guest and authenticated states. */
 .hub-theme-toggle {
   position: fixed;
   z-index: 210;
-  top: 17px;
-  right: 24px;
+  left: 20px;
+  bottom: max(18px, env(safe-area-inset-bottom));
   min-width: 78px;
   height: 42px;
   padding: 0 12px;
@@ -24,9 +24,9 @@
 .hub-theme-toggle svg { width: 17px; height: 17px; flex: none; }
 .hub-theme-toggle:hover { border-color: var(--green); background: var(--panel); }
 .hub-theme-toggle:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
-.hub-main { padding-top: 79px; }
-body:has(.guest-shell) .hub-theme-toggle { top: 15px; right: 20px; }
-body:has(.guest-shell) .guest-header { padding-right: 128px; }
+/* Keep the fixed control below the side navigation without covering account actions. */
+body:has(.hub-shell) .hub-theme-toggle { left: 20px; width: calc(var(--sidebar) - 40px); }
+body:has(.hub-shell) .hub-side .side-bottom { margin-bottom: 57px; }
 
 html[data-theme="light"] {
   color-scheme: light;
@@ -199,13 +199,11 @@ html[data-theme="light"] .cost-preview { background: #edf8ef; }
 html[data-theme="light"] .model-experience-run-list button:is(:hover, .active) { background: #edf8ef; }
 
 @media (max-width: 850px) {
-  .hub-theme-toggle { right: 18px; }
-  .hub-main { padding-top: 76px; }
+  body:has(.hub-shell) .hub-theme-toggle { left: 11px; width: 42px; min-width: 42px; padding: 0; }
+  body:has(.hub-shell) .hub-theme-toggle span { display: none; }
 }
 @media (max-width: 620px) {
-  .hub-theme-toggle { top: 14px; right: 14px; min-width: 42px; width: 42px; padding: 0; }
+  .hub-theme-toggle { left: 14px; bottom: max(14px, env(safe-area-inset-bottom)); min-width: 42px; width: 42px; padding: 0; }
   .hub-theme-toggle span { display: none; }
-  .hub-main { padding-top: 68px; }
-  body:has(.guest-shell) .guest-header { padding-right: 68px; }
-  body:has(.guest-shell) .hub-theme-toggle { top: 12px; right: 12px; }
+  body:has(.hub-shell) .hub-theme-toggle { left: 11px; }
 }

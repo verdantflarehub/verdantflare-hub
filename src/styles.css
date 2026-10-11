@@ -27,6 +27,7 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--ink); c
 button, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { color: inherit; }
+button, .button { white-space: nowrap; }
 a { color: inherit; text-decoration: none; }
 code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 
@@ -1214,3 +1215,15 @@ button { letter-spacing: .005em; }
 @media (max-width: 1000px) { .model-experience-layout { grid-template-columns: 1fr; } }
 @media (max-width: 680px) { .model-experience-form, .model-experience-result { padding: 16px; }.model-experience-balance { flex-wrap: wrap; } }
 @media (prefers-reduced-motion: reduce) { .model-experience-run-list button { transition: none; } }
+
+/* Keep header actions readable while the adjacent title/description takes the shrink. */
+.page-header > div { min-width: 0; flex: 1 1 auto; }
+.page-header > .button { flex: 0 0 auto; min-width: max-content; white-space: nowrap; }
+
+/* Metadata labels are atomic; only long values may wrap in narrow side panels. */
+:is(.app-specs, .context-panel, .market-detail-info) dt { flex: 0 0 auto; white-space: nowrap; }
+:is(.app-specs, .context-panel, .market-detail-info) dd { min-width: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 680px) {
+  .page-header > div, .page-header > .button { width: 100%; }
+}

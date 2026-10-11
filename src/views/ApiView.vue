@@ -228,7 +228,7 @@ const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? 
       <div class="catalog-tools"><label class="search-field"><AppIcon name="search" :size="18" /><input v-model="modelSearch" type="search" placeholder="搜索模型或提供方" /></label><span>{{ modelsLoading ? '正在加载模型…' : `${filteredModels.length} 个目录模型` }}</span></div>
       <section v-if="unavailableRequestedModel" class="security-callout"><AppIcon name="warning" :size="22" /><div><strong>模型不在当前目录</strong><p>模型 {{ unavailableRequestedModel }} 未由 Control 返回，请检查模型 ID 或稍后刷新。</p></div></section>
       <section class="catalog-card-grid" aria-label="已上架模型">
-        <CatalogCard v-for="model in filteredModels" :key="model.id" :title="model.name" :meta="`${model.provider} · ${model.id}`" :description="model.type" icon="models" :tags="modelCardTags(model)" :status="model.experienceMode === 'chat' ? '可体验' : '体验待接入'" :status-tone="model.experienceMode === 'chat' ? 'positive' : 'neutral'" :actions="modelCardActions(model)" :highlighted="model.id === requestedModelId" />
+        <CatalogCard v-for="model in filteredModels" :key="model.id" :title="model.name" :meta="`${model.provider} · ${model.id}`" :description="model.type" icon="models" :icon-url="model.providerIconUrl" :tags="modelCardTags(model)" :status="model.experienceMode === 'chat' ? '可体验' : '体验待接入'" :status-tone="model.experienceMode === 'chat' ? 'positive' : 'neutral'" :actions="modelCardActions(model)" :highlighted="model.id === requestedModelId" />
       </section>
       <div v-if="!modelsLoading && !modelsError && !filteredModels.length" class="empty-state"><AppIcon name="search" :size="26" /><strong>暂无已上架模型</strong><span>请运营管理员核对网关模型，并在 Hub 模型上架页公开。</span></div>
     </template>

@@ -81,7 +81,7 @@ onMounted(loadCatalog);
         <section v-if="section !== 'apps'" class="guest-catalog" aria-labelledby="guest-model-heading">
           <div class="guest-section-heading"><div><span>MODEL MARKET</span><h2 id="guest-model-heading">公开模型</h2><p>来自已公开的 Control 目录，不包含调用额度或实时可用性。</p></div><strong>{{ models.length }} 个模型</strong></div>
           <div v-if="models.length" class="catalog-card-grid">
-            <CatalogCard v-for="model in models" :key="model.id" :title="model.name" :meta="`${model.provider} · ${model.id}`" :description="model.summary" icon="models" :tags="[...(model.categories || []), ...(model.context ? [`上下文 ${model.context}`] : [])]" status="仅供浏览" />
+            <CatalogCard v-for="model in models" :key="model.id" :title="model.name" :meta="`${model.provider} · ${model.id}`" :description="model.summary" icon="models" :icon-url="model.providerIconUrl" :tags="[...(model.categories || []), ...(model.context ? [`上下文 ${model.context}`] : [])]" status="仅供浏览" />
           </div>
           <div v-else class="guest-empty"><AppIcon name="models" :size="25" /><strong>暂无公开模型</strong><p>管理员发布后，这里会自动显示真实目录记录。</p></div>
         </section>

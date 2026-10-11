@@ -32,7 +32,7 @@ const filteredModels = computed(() => {
 });
 const canSave = computed(() => draft.value && draft.value.id.trim() && draft.value.name.trim()
   && draft.value.provider.trim() && draft.value.summary.trim() && categoriesText.value.trim());
-const blank = () => ({ id: "", name: "", provider: "", summary: "", categories: [], context: "", maxInput: "", maxOutput: "", inputPrice: "", outputPrice: "", cachePrice: "", priceUnit: "", publicVisible: false, experienceMode: "" });
+const blank = () => ({ id: "", name: "", provider: "", providerIconUrl: "", summary: "", categories: [], context: "", maxInput: "", maxOutput: "", inputPrice: "", outputPrice: "", cachePrice: "", priceUnit: "", publicVisible: false, experienceMode: "" });
 const select = (model) => {
   draft.value = model ? { ...model, experienceMode: model.experienceMode || "" } : blank();
   categoriesText.value = (model?.categories || []).join("、");
@@ -136,6 +136,7 @@ onMounted(load);
           <label class="form-field"><span>模型 ID</span><input v-model.trim="draft.id" :disabled="!isNew" list="gateway-model-options" required /><datalist id="gateway-model-options"><option v-for="id in gatewayModels" :key="id" :value="id" /></datalist></label>
           <label class="form-field"><span>名称</span><input v-model.trim="draft.name" required /></label>
           <label class="form-field"><span>提供方</span><input v-model.trim="draft.provider" required /></label>
+          <label class="form-field"><span>提供方官方图标 URL（可选）</span><input v-model.trim="draft.providerIconUrl" type="url" placeholder="https://example.com/logo.png" /></label>
           <label class="form-field"><span>类别（用顿号分隔）</span><input v-model="categoriesText" required /></label>
         </div>
         <label class="form-field"><span>公开简介</span><textarea v-model.trim="draft.summary" rows="3" required /></label>

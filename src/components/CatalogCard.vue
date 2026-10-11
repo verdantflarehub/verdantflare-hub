@@ -1,10 +1,10 @@
 <script setup>
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import AppIcon from "./AppIcon.vue";
 import { navigate } from "../router";
 
 const iconFailed = ref(false);
-defineProps({
+const props = defineProps({
   title: { type: String, required: true },
   meta: { type: String, default: "" },
   description: { type: String, default: "" },
@@ -16,6 +16,7 @@ defineProps({
   actions: { type: Array, default: () => [] },
   highlighted: { type: Boolean, default: false },
 });
+watch(() => props.iconUrl, () => { iconFailed.value = false; });
 </script>
 
 <template>

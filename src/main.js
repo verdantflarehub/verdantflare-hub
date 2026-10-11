@@ -4,5 +4,6 @@ import "@fontsource-variable/noto-sans-sc";
 import "./styles.css";
 import "./hub-workspace.css";
 import "./typography.css";
+import "./theme.css";
 
 createApp(App).mount("#app");

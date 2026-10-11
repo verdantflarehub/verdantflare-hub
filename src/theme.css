@@ -1,0 +1,176 @@
+/* A single corner control stays available in loading, guest and authenticated states. */
+.hub-theme-toggle {
+  position: fixed;
+  z-index: 210;
+  top: 17px;
+  right: 24px;
+  min-width: 78px;
+  height: 42px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--panel-raised);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, .12);
+  color: var(--paper);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+.hub-theme-toggle svg { width: 17px; height: 17px; flex: none; }
+.hub-theme-toggle:hover { border-color: var(--green); background: var(--panel); }
+.hub-theme-toggle:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.hub-main { padding-top: 79px; }
+body:has(.guest-shell) .hub-theme-toggle { top: 15px; right: 20px; }
+body:has(.guest-shell) .guest-header { padding-right: 128px; }
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --ink: #eef2ef;
+  --ink-soft: #f6f9f6;
+  --panel: #fff;
+  --panel-raised: #f7faf7;
+  --paper: #18241f;
+  --muted: #59695e;
+  --muted-strong: #34483b;
+  --green: #087e60;
+  --green-bright: #076b52;
+  --blue: #416ba3;
+  --coral: #b53c48;
+  --amber: #98600e;
+  --violet: #744ca2;
+  --line: rgba(21, 35, 30, .13);
+  --line-strong: rgba(21, 35, 30, .23);
+  --shadow: 0 18px 48px rgba(21, 35, 30, .12);
+  --control-border: rgba(21, 35, 30, .17);
+  --control-border-hover: rgba(8, 126, 96, .42);
+  --control-surface: linear-gradient(180deg, #fff, #f4f8f4);
+  --control-shadow: 0 1px 0 #fff inset, 0 5px 18px rgba(21, 35, 30, .07);
+  background: var(--ink);
+  color: var(--paper);
+}
+html[data-theme="light"] body,
+html[data-theme="light"] .hub-shell,
+html[data-theme="light"] .context-state { background: var(--ink); color: var(--paper); }
+html[data-theme="light"] .hub-side { background: #f8faf8; }
+html[data-theme="light"] .hub-side .nav-section-label,
+html[data-theme="light"] .page-overline { color: #66796a; }
+html[data-theme="light"] .hub-side .side-navigation button { color: #455a4b; }
+html[data-theme="light"] .hub-side .side-navigation button:is(:hover, .active) {
+  border-color: rgba(8, 126, 96, .16);
+  background: #e7f3ea;
+  color: #173d2a;
+}
+html[data-theme="light"] .hub-side .side-navigation button.active svg { color: #087e60; }
+html[data-theme="light"] .hub-side .side-primary { border-color: rgba(8, 126, 96, .3); background: #e4f4e8; color: #086448; }
+html[data-theme="light"] .hub-side .side-context,
+html[data-theme="light"] .hub-side .side-user { background: #fff; }
+html[data-theme="light"] .hub-side .side-emblem,
+html[data-theme="light"] .org-avatar { background: #e2f1e6; color: #096c51; }
+html[data-theme="light"] .hub-side .side-user .side-emblem { background: #e6ebe6; color: #34483b; }
+html[data-theme="light"] .hub-side .side-context:hover { border-color: rgba(8, 126, 96, .42); }
+html[data-theme="light"] .hub-theme-toggle { background: #fff; color: #18241f; }
+html[data-theme="light"] .hub-theme-toggle:hover { background: #e9f4ec; }
+html[data-theme="light"] .guest-header { background: rgba(250, 252, 250, .94); }
+html[data-theme="light"] .guest-hero { background: linear-gradient(125deg, #fff, #eaf3eb); }
+html[data-theme="light"] .guest-access-note { background: #fff; }
+html[data-theme="light"] .guest-empty,
+html[data-theme="light"] .guest-feedback { background: #fff; }
+html[data-theme="light"] ::-webkit-scrollbar-thumb { background-color: rgba(21, 35, 30, .25); }
+
+html[data-theme="light"] :is(.overview-rail, .overview-journey, .overview-activity-panel, .content-panel, .data-table, .metric-card, .welcome-band, .featured-app, .app-card, .playground-form, .playground-result, .model-experience-form, .model-experience-result, .modal-card, .budget-band, .plan-hero, .organization-form) {
+  border-color: var(--line);
+  background: #fff;
+  color: var(--paper);
+  box-shadow: 0 9px 30px rgba(21, 35, 30, .045);
+}
+html[data-theme="light"] :is(.welcome-band, .featured-app, .overview-journey, .budget-band, .plan-hero) {
+  background: linear-gradient(130deg, #fff, #eef6ef);
+}
+html[data-theme="light"] .overview-rail-intro { background: #eef6ef; }
+html[data-theme="light"] .overview-rail-steps > div,
+html[data-theme="light"] .overview-journey-steps > div > div,
+html[data-theme="light"] .readiness-grid > div { background: #f7faf7; }
+html[data-theme="light"] .app-card:hover,
+html[data-theme="light"] .dashboard-list > button:hover,
+html[data-theme="light"] .table-row:hover { background: #f2f8f3; }
+html[data-theme="light"] .table-head,
+html[data-theme="light"] .app-version-head { background: #edf3ee; color: #53665a; }
+html[data-theme="light"] .table-row,
+html[data-theme="light"] .table-row small,
+html[data-theme="light"] .app-card footer,
+html[data-theme="light"] .overview-heading p { color: #59695e; }
+html[data-theme="light"] .table-row strong { color: #18241f; }
+html[data-theme="light"] .table-row code { color: #34483b; }
+html[data-theme="light"] .popover { background: #fff; }
+html[data-theme="light"] .popover-label,
+html[data-theme="light"] .org-switcher small { color: #59695e; }
+html[data-theme="light"] .org-popover button:is(:hover, .selected),
+html[data-theme="light"] .profile-popover > button:hover,
+html[data-theme="light"] .notifications-popover > button:hover { background: #eef6ef; }
+html[data-theme="light"] .modal-backdrop { background: rgba(21, 35, 30, .42); }
+html[data-theme="light"] .form-field :is(input, select, textarea),
+html[data-theme="light"] .read-only-input,
+html[data-theme="light"] .search-field,
+html[data-theme="light"] .model-experience-form :is(input, textarea) {
+  border-color: var(--line-strong);
+  background: #fff;
+  color: #18241f;
+}
+html[data-theme="light"] .form-field :is(input, textarea)::placeholder,
+html[data-theme="light"] .search-field input::placeholder { color: #6b796d; }
+html[data-theme="light"] .form-field select option { background: #fff; color: #18241f; }
+html[data-theme="light"] .button.secondary {
+  border-color: var(--control-border);
+  background: linear-gradient(180deg, #fff, #f3f7f3);
+  color: #263c2e;
+}
+html[data-theme="light"] .button.secondary:hover:not(:disabled),
+html[data-theme="light"] .button:not(.primary):not(.danger):hover:not(:disabled),
+html[data-theme="light"] :is(.icon-button, .row-action, .profile-button):hover {
+  border-color: rgba(8, 126, 96, .42);
+  background: #e7f3ea;
+  color: #17442e;
+}
+html[data-theme="light"] .button.primary,
+html[data-theme="light"] .button.primary:hover:not(:disabled) { color: #062214; }
+html[data-theme="light"] .button.danger { color: #a2333d; }
+html[data-theme="light"] :is(.category-tabs button, .task-filters > button, .code-tabs > button) {
+  background: #fff;
+  color: #34483b;
+}
+html[data-theme="light"] :is(.category-tabs button, .task-filters > button, .code-tabs > button):is(:hover, .active) {
+  border-color: rgba(8, 126, 96, .35);
+  background: #e7f3ea;
+  color: #096b51;
+}
+html[data-theme="light"] .modal-card,
+html[data-theme="light"] .profile-popover { color: #18241f; }
+html[data-theme="light"] .safety-note,
+html[data-theme="light"] .ops-note,
+html[data-theme="light"] .context-note { background: #fff7e9; }
+html[data-theme="light"] .code-quickstart,
+html[data-theme="light"] .playground-code { background: #142019; color: #f2f5f2; }
+html[data-theme="light"] .code-quickstart .code-heading,
+html[data-theme="light"] .playground-code .code-heading { color: #f2f5f2; }
+html[data-theme="light"] .result-empty > div { background: #eaf3eb; }
+html[data-theme="light"] .model-experience-answer { color: #18241f; }
+html[data-theme="light"] .secret-box { background: #edf8ef; }
+html[data-theme="light"] .cost-preview { background: #edf8ef; }
+html[data-theme="light"] .model-experience-run-list button:is(:hover, .active) { background: #edf8ef; }
+
+@media (max-width: 850px) {
+  .hub-theme-toggle { right: 18px; }
+  .hub-main { padding-top: 76px; }
+}
+@media (max-width: 620px) {
+  .hub-theme-toggle { top: 14px; right: 14px; min-width: 42px; width: 42px; padding: 0; }
+  .hub-theme-toggle span { display: none; }
+  .hub-main { padding-top: 68px; }
+  body:has(.guest-shell) .guest-header { padding-right: 68px; }
+  body:has(.guest-shell) .hub-theme-toggle { top: 12px; right: 12px; }
+}

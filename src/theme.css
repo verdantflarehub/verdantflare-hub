@@ -92,6 +92,16 @@ html[data-theme="light"] :is(.overview-rail, .overview-journey, .overview-activi
 html[data-theme="light"] :is(.welcome-band, .featured-app, .overview-journey, .budget-band, .plan-hero) {
   background: linear-gradient(130deg, #fff, #eef6ef);
 }
+html[data-theme="light"] .detail-command-bar {
+  border-color: var(--line);
+  background: linear-gradient(130deg, var(--panel), var(--panel-raised));
+  color: var(--paper);
+  box-shadow: 0 9px 30px rgba(21, 35, 30, .045);
+}
+html[data-theme="light"] .release-stage-line {
+  border-color: var(--line);
+  background: var(--panel);
+}
 html[data-theme="light"] .overview-rail-intro { background: #eef6ef; }
 html[data-theme="light"] .overview-rail-steps > div,
 html[data-theme="light"] .overview-journey-steps > div > div,

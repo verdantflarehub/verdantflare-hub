@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 env:
-  VERSION: ${{ github.ref == 'refs/heads/dev' && 'hub-v1.5.20-dev.1' || 'hub-v1.5.20' }}
+  VERSION: ${{ github.ref == 'refs/heads/dev' && 'hub-v1.5.21-dev.1' || 'hub-v1.5.21' }}
 
 concurrency:
   group: verdantflare-hub-release

@@ -324,7 +324,7 @@ const save = async (channel = form.value.channel) => {
 
       <section class="content-panel chart-audit-panel">
         <div class="section-heading"><div><h2>第二步 · 上传 Helm Chart</h2><p>支持 Helm 打包的 .tgz 文件，最多 2 MiB。Control 仅读取并检查本次上传，不保存为可安装版本。</p></div><span class="candidate-internal-tag">仅内部预检</span></div>
-        <p class="candidate-help">归档必备：Chart.yaml（v2/application、名称与应用 ID 一致、固定版本和 appVersion）、values.yaml、Deployment、ClusterIP Service、工作卷、GPU 请求与上限、固定镜像标签及 SHA-256。禁止 Secret、公网入口和子 Chart 依赖；目标 Station 仍需单独验收。</p>
+        <p class="candidate-help">归档必备：Chart.yaml（v2/application、名称与应用 ID 一致、固定版本和 appVersion）、values.yaml、Deployment、ClusterIP Service、工作卷、固定镜像标签及 SHA-256；GPU 应用还需声明 GPU 请求与上限。禁止 Secret、公网入口和子 Chart 依赖；目标 Station 仍需单独验收。</p>
         <div class="chart-audit-actions"><input type="file" accept=".tgz,application/gzip" aria-label="选择 Helm Chart 归档" @change="selectChartFile" /><button class="button secondary" :disabled="!chartFile || chartAuditing" @click="auditChart">{{ chartAuditing ? '正在检查…' : '上传并检查' }}</button></div>
         <p v-if="chartAuditError" class="form-error" role="alert">{{ chartAuditError }}</p>
         <div v-if="chartAudit" class="chart-audit-report">

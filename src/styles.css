@@ -1244,3 +1244,59 @@ button { letter-spacing: .005em; }
 @media (max-width: 680px) {
   .page-header > div, .page-header > .button { width: 100%; }
 }
+
+/* Data lists follow the model-catalog pattern: quiet status text and a named action. */
+.data-table .status-badge {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+}
+.data-table .status-badge:is(.success, .active) { border: 0; background: transparent; color: var(--green); }
+.data-table .status-badge:is(.warning, .danger, .neutral) { border: 0; background: transparent; }
+.data-table .status-badge i { width: 6px; height: 6px; flex: 0 0 auto; }
+.model-experience-run-list .status-badge { padding: 0; min-height: 0; border: 0; background: transparent; font-size: 12px; }
+.model-experience-run-list .status-badge:is(.success, .active) { color: var(--green); }
+.model-experience-run-list .model-experience-open { display: inline-flex; align-items: center; gap: 5px; color: var(--green); font-size: 12px; font-weight: 650; white-space: nowrap; }
+.model-experience-run-list .model-experience-open svg { color: currentColor; }
+.data-table .table-state { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
+.data-table .table-state::before { width: 6px; height: 6px; border-radius: 50%; background: currentColor; content: ""; }
+.table-action {
+  width: max-content;
+  min-height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.table-action svg { flex: 0 0 auto; transition: transform 150ms ease; }
+.table-action:hover:not(:disabled) svg { transform: translateX(2px); }
+.table-action:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; border-radius: 2px; }
+.table-action.danger { color: var(--coral); }
+.table-action:disabled { opacity: .42; cursor: not-allowed; }
+.table-action-unavailable { color: var(--muted); }
+.data-table .key-actions { display: flex; align-items: center; justify-content: flex-start; gap: 12px; white-space: nowrap; }
+.release-table .table-head, .release-table .table-row { min-width: 900px; grid-template-columns: minmax(150px, 1.4fr) minmax(105px, .8fr) 105px minmax(105px, .75fr) 112px 100px 74px; }
+.organization-table .table-head, .organization-table .table-row { min-width: 1060px; grid-template-columns: minmax(180px, 1.4fr) 90px 70px 85px 120px 100px 78px 74px; }
+.member-table .table-head, .member-table .table-row { min-width: 690px; grid-template-columns: minmax(205px, 1.6fr) minmax(100px, .8fr) 105px 80px 74px; }
+.keys-table .table-head, .keys-table .table-row { min-width: 1040px; grid-template-columns: minmax(140px, 1.2fr) minmax(120px, 1fr) minmax(165px, 1.4fr) 110px 115px 75px 134px; }
+.tasks-table .table-head, .tasks-table .table-row { min-width: 740px; grid-template-columns: minmax(135px, 1fr) minmax(155px, 1.3fr) 110px 80px 80px 75px; }
+.invoice-table .table-head, .invoice-table .table-row { min-width: 550px; grid-template-columns: minmax(125px, 1fr) minmax(165px, 1fr) 105px 72px; }
+@media (max-width: 680px) {
+  .data-table:not(.model-admin-list) { overflow-x: auto; }
+  .data-table:not(.model-admin-list) .table-head,
+  .data-table:not(.model-admin-list) .table-row { width: max-content; }
+}
+@media (prefers-reduced-motion: reduce) { .table-action svg { transition: none; } }

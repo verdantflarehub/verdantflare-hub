@@ -4,10 +4,10 @@ import { computed } from "vue";
 const props = defineProps({ label: { type: String, required: true } });
 
 const tone = computed(() => {
-  if (["可用", "可调用", "正常", "有效", "成功", "已发布", "已到账"].includes(props.label)) return "success";
+  if (["可用", "可调用", "正常", "有效", "成功", "已发布", "已到账", "目录已上架", "已上架", "已公开", "已列出", "已授权"].includes(props.label)) return "success";
   if (["运行中", "可体验", "灰度中", "试用中"].includes(props.label)) return "active";
-  if (["失败", "已冻结"].includes(props.label)) return "danger";
-  if (["许可复核", "申请体验", "待邀请", "需重建", "已过期"].includes(props.label)) return "warning";
+  if (["失败", "冻结", "已冻结", "已撤销"].includes(props.label)) return "danger";
+  if (["许可复核", "申请体验", "待邀请", "需重建", "已过期", "已暂停"].includes(props.label)) return "warning";
   return "neutral";
 });
 </script>

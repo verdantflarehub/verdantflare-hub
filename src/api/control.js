@@ -30,6 +30,7 @@ export const controlApi = {
   getCenterContext,
   setActiveOrganization: (organizationId) => request("/context/active-organization", { method: "PUT", body: JSON.stringify({ organizationId }) }),
   getOverview: () => request("/overview"),
+  getGuestCatalog: () => request("/guest/catalog"),
   listApps: () => request("/market/apps"),
   getApp: (id) => request(`/market/apps/${encodeURIComponent(id)}`),
   listExperienceSessions: () => request("/experience/sessions"),

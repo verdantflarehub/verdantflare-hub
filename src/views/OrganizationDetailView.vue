@@ -26,6 +26,8 @@ const guestPage = ref({ users: [], nextCursor: "" });
 const guestsLoading = ref(false);
 const guestError = ref("");
 const selectedGuest = ref(null);
+let guestRequest = 0;
+let loadedGuestQuery = "";
 const memberRole = ref("成员");
 const editingMember = ref(null);
 const memberDraft = ref({ role: "成员", status: "待邀请" });
@@ -115,16 +117,23 @@ const save = async (status = form.value.status) => {
 };
 
 const loadGuests = async (append = false) => {
+  const request = ++guestRequest;
+  if (!append) {
+    loadedGuestQuery = guestQuery.value.trim();
+    guestPage.value = { users: [], nextCursor: "" };
+    selectedGuest.value = null;
+  }
   guestsLoading.value = true;
   guestError.value = "";
   try {
-    const page = await controlApi.listGuests({ q: guestQuery.value.trim(), limit: 50, ...(append ? { cursor: guestPage.value.nextCursor } : {}) });
+    const page = await controlApi.listGuests({ q: loadedGuestQuery, limit: 50, ...(append ? { cursor: guestPage.value.nextCursor } : {}) });
+    if (request !== guestRequest) return;
     guestPage.value = { users: append ? [...guestPage.value.users, ...page.users] : page.users, nextCursor: page.nextCursor };
-    if (!append) selectedGuest.value = null;
   } catch (cause) {
+    if (request !== guestRequest) return;
     guestError.value = cause instanceof Error ? cause.message : "游客列表加载失败";
   } finally {
-    guestsLoading.value = false;
+    if (request === guestRequest) guestsLoading.value = false;
   }
 };
 const openGuestPicker = () => {

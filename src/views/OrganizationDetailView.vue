@@ -5,7 +5,7 @@ import AppIcon from "../components/AppIcon.vue";
 import MetricCard from "../components/MetricCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { navigate } from "../router";
-import { formatQuotaUSD } from "../utils/quota";
+import { formatYuan, parseCNYFen } from "../utils/quota";
 
 const props = defineProps({ path: String });
 const emit = defineEmits(["toast", "context-change"]);
@@ -18,7 +18,11 @@ const error = ref("");
 const credit = ref(null);
 const creditError = ref("");
 const creditAmount = ref("");
+const creditAmountFen = computed(() => parseCNYFen(creditAmount.value));
+const creditQuote = ref(null);
+const creditQuoteError = ref("");
 const creditRequestId = ref("");
+const creditRequestAmountFen = ref(null);
 const grantingCredit = ref(false);
 const showCreateMember = ref(false);
 const guestQuery = ref("");
@@ -71,18 +75,22 @@ const loadCredit = async () => {
   }
 };
 const grantCredit = async () => {
-  const amountCents = Math.round(Number(creditAmount.value) * 100);
-  if (!Number.isFinite(amountCents) || amountCents < 1 || amountCents > 100000 || Math.abs(amountCents / 100 - Number(creditAmount.value)) > 0.000001) {
-    creditError.value = "请输入 0.01–1000.00 美元，最多两位小数";
+  const amountFen = creditAmountFen.value;
+  if (amountFen === null || !creditQuote.value || creditQuote.value.requestedFen !== amountFen) {
+    creditError.value = "请输入有效人民币金额并等待到账预览；当前金额可能低于网关最小计费粒度";
     return;
   }
-  if (!creditRequestId.value) creditRequestId.value = crypto.randomUUID();
+  if (!creditRequestId.value || creditRequestAmountFen.value !== amountFen) {
+    creditRequestId.value = crypto.randomUUID();
+    creditRequestAmountFen.value = amountFen;
+  }
   grantingCredit.value = true;
   creditError.value = "";
   try {
-    credit.value = await controlApi.grantOrganizationApiCredit(organizationId.value, { amountCents, requestId: creditRequestId.value });
+    credit.value = await controlApi.grantOrganizationApiCredit(organizationId.value, { amountFen, requestId: creditRequestId.value });
     creditAmount.value = "";
     creditRequestId.value = "";
+    creditRequestAmountFen.value = null;
     emit("toast", "API 额度已分配");
   } catch (cause) {
     creditError.value = cause instanceof Error ? cause.message : "分配额度失败";
@@ -90,8 +98,24 @@ const grantCredit = async () => {
     grantingCredit.value = false;
   }
 };
+watch([creditAmountFen, organizationId], ([amountFen, id], _, onCleanup) => {
+  creditQuote.value = null;
+  creditQuoteError.value = "";
+  if (amountFen === null) return;
+  let active = true;
+  const timer = window.setTimeout(async () => {
+    try {
+      const result = await controlApi.quoteOrganizationApiCredit(id, amountFen);
+      if (active) creditQuote.value = result;
+    } catch (cause) {
+      if (active) creditQuoteError.value = cause instanceof Error ? cause.message : "额度预览不可用";
+    }
+  }, 250);
+  onCleanup(() => { active = false; window.clearTimeout(timer); });
+}, { immediate: true });
 watch(organizationId, () => {
   creditRequestId.value = "";
+  creditRequestAmountFen.value = null;
   creditAmount.value = "";
   credit.value = null;
   load();
@@ -226,7 +250,7 @@ const saveMember = async () => {
 
       <section class="metric-grid compact"><MetricCard label="成员记录" :value="String(record.members.length)" detail="含待接受邀请" icon="members" tone="mint" /><MetricCard label="应用权益" :value="String(record.appIds.length)" detail="已授权应用" icon="market" tone="blue" /><MetricCard label="权益版本" :value="`v${record.organization.entitlementVersion}`" detail="每次保存递增" icon="usage" tone="violet" /></section>
 
-      <section class="content-panel organization-credit"><div class="section-heading"><div><h2>模型 API 额度</h2><p>网关账户余额为准；由客户成功管理员按美元追加。发放记录会出现在组织的“套餐与账单”，不代表客户付款。</p></div><button class="button secondary" :disabled="grantingCredit" @click="loadCredit">刷新额度</button></div><p v-if="creditError" class="form-error" role="alert">{{ creditError }}</p><div v-if="credit" class="metric-grid compact"><MetricCard label="累计分配" :value="formatQuotaUSD(credit.remainingQuota + credit.usedQuota)" detail="美元" icon="usage" tone="mint" /><MetricCard label="已使用" :value="formatQuotaUSD(credit.usedQuota)" detail="美元" icon="tasks" tone="blue" /><MetricCard label="剩余额度" :value="formatQuotaUSD(credit.remainingQuota)" :detail="credit.enabled ? '网关账号启用' : '网关账号已停用'" icon="check" tone="violet" /></div><div class="credit-grant-form"><label class="form-field"><span>本次追加金额（USD）</span><input v-model="creditAmount" type="number" min="0.01" max="1000" step="0.01" inputmode="decimal" placeholder="例如 10.00" /></label><button class="button primary" :disabled="grantingCredit || record.organization.status === '冻结' || !creditAmount" @click="grantCredit">{{ grantingCredit ? '正在分配…' : '确认追加额度' }}</button></div><p class="credit-help">仅追加，不覆盖原余额。网络失败后使用同一请求 ID 重试，避免重复加额。</p></section>
+      <section class="content-panel organization-credit"><div class="section-heading"><div><h2>模型 API 额度</h2><p>额度由 Control 按固定汇率 1 美元 = 7.3 元返回人民币等值，网关仍以美元计费。发放记录会出现在组织的“套餐与账单”，不代表客户付款。</p></div><button class="button secondary" :disabled="grantingCredit" @click="loadCredit">刷新额度</button></div><p v-if="creditError" class="form-error" role="alert">{{ creditError }}</p><div v-if="credit" class="metric-grid compact"><MetricCard label="累计分配" :value="formatYuan(credit.budgetYuan)" detail="人民币等值" icon="usage" tone="mint" /><MetricCard label="已使用" :value="formatYuan(credit.usedYuan)" detail="人民币等值" icon="tasks" tone="blue" /><MetricCard label="剩余额度" :value="formatYuan(credit.remainingYuan)" :detail="credit.enabled ? '网关账号启用' : '网关账号已停用'" icon="check" tone="violet" /></div><div class="credit-grant-form"><label class="form-field"><span>本次追加金额（人民币）</span><input v-model="creditAmount" type="number" min="0.01" max="7300" step="0.01" inputmode="decimal" placeholder="例如 36.50" /></label><button class="button primary" :disabled="grantingCredit || record.organization.status === '冻结' || !creditQuote || creditQuote.requestedFen !== creditAmountFen" @click="grantCredit">{{ grantingCredit ? '正在分配…' : '确认追加额度' }}</button></div><p v-if="creditQuote" class="credit-help">实际到账人民币等值 {{ formatYuan(creditQuote.creditedYuan) }}；网关计费粒度可能使其与输入金额略有差异。</p><p v-if="creditQuoteError" class="form-error" role="alert">{{ creditQuoteError }}</p><p class="credit-help">仅追加，不覆盖原余额。网络失败后使用同一请求 ID 重试，避免重复加额。</p></section>
 
       <div class="detail-two-column organization-detail-grid">
         <section class="content-panel"><div class="section-heading"><div><h2>应用权益</h2><p>客户仅能看到已发布且已授权的应用。</p></div><span>v{{ record.organization.entitlementVersion }}</span></div><div class="entitlement-list"><label v-for="app in record.apps" :key="app.id"><span class="app-card-icon" :class="app.tone"><AppIcon :name="app.icon || 'market'" :size="19" /></span><span><strong>{{ app.name }}</strong><small>{{ app.channel }} · {{ app.version }} · {{ app.gpu }}</small></span><input v-model="form.appIds" type="checkbox" :value="app.id" /></label></div><p v-if="!record.apps.length">暂无可授权的已发布应用。</p></section>

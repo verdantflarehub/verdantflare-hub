@@ -1,9 +1,12 @@
-const QUOTA_PER_USD = 500000;
+export const formatYuan = (value) =>
+  typeof value === "string" && /^(?:0|[1-9]\d*)\.\d{2,6}$/.test(value) ? `¥${value}` : "—";
 
-export const formatQuotaUSD = (quota) => {
-  if (!Number.isSafeInteger(quota) || quota < 0) return "—";
-  const [whole, fraction] = (quota / QUOTA_PER_USD).toFixed(6).split(".");
-  return `$${whole}.${fraction.replace(/0+$/, "").padEnd(2, "0")}`;
+export const parseCNYFen = (value) => {
+  const input = String(value).trim();
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(input)) return null;
+  const [whole, fraction = ""] = input.split(".");
+  const cnyFen = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  return Number.isSafeInteger(cnyFen) && cnyFen >= 1 && cnyFen <= 730000 ? cnyFen : null;
 };
 
 export const formatUsagePercent = (usedQuota, budgetQuota) => {

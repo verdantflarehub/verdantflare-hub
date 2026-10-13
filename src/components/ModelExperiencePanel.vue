@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { controlApi } from "../api/control";
 import AppIcon from "./AppIcon.vue";
 import StatusBadge from "./StatusBadge.vue";
-import { formatQuotaUSD } from "../utils/quota";
+import { formatYuan } from "../utils/quota";
 import { navigate } from "../router";
 
 const props = defineProps({ organizationId: String, modelId: { type: String, required: true }, canCreateKey: Boolean });
@@ -122,7 +122,7 @@ onUnmounted(() => window.clearTimeout(pollTimer));
 <template>
   <section class="content-panel model-experience-panel">
     <div class="section-heading"><div><h2>模型在线体验</h2><p>{{ models.find((model) => model.id === modelId)?.name || modelId }} · 先创建并选择当前组织的 API Key，再使用真实额度体验。</p></div><StatusBadge :label="modelAvailable && selectedKey && usage?.enabled && usage.remainingQuota > 0 && !modelsError && !usageError && !keysError ? '可调用' : '待核验'" /></div>
-    <div class="model-experience-balance"><span>组织 API 余额</span><strong>{{ usage && !usageError ? formatQuotaUSD(usage.remainingQuota) : '暂不可用' }}</strong><button class="text-button" @click="refresh">刷新状态</button></div>
+    <div class="model-experience-balance"><span>组织 API 余额（按固定汇率折算）</span><strong>{{ usage && !usageError ? formatYuan(usage.remainingYuan) : '暂不可用' }}</strong><button class="text-button" @click="refresh">刷新状态</button></div>
     <div v-if="modelsError || usageError || keysError" class="ops-note"><AppIcon name="warning" :size="18" /><div><strong>暂时无法发起体验</strong><p>{{ modelsError || usageError || keysError }}</p></div></div>
     <div v-if="!keysError && !availableKeys.length" class="ops-note"><AppIcon name="key" :size="18" /><div><strong>先创建可用于此模型的 API Key</strong><p>{{ canCreateKey ? '当前组织还没有授权此模型的有效 Key。创建后返回这里选择，系统不会使用隐藏的内部凭证。' : '请联系组织管理员创建授权此模型的 Key；当前没有可用 Key，无法发起付费体验。' }}</p></div><button v-if="canCreateKey" class="button secondary" @click="navigate(`/api/keys?return_to=${encodeURIComponent(`/experience?model=${modelId}`)}`)">创建 API Key</button></div>
     <div class="model-experience-layout">
@@ -144,7 +144,7 @@ onUnmounted(() => window.clearTimeout(pollTimer));
           <div v-if="selectedRun.status === 'completed'" class="model-experience-answer">{{ selectedRun.response }}</div>
           <div v-else-if="selectedRun.status === 'submitting'" class="model-experience-pending"><div class="loading-ring" /><span>模型正在生成；离开页面后可从体验记录恢复。</span></div>
           <div v-else class="model-experience-failure"><AppIcon name="warning" :size="20" /><span>{{ errorLabel(selectedRun.errorCode) }}</span></div>
-          <div class="model-experience-meta"><span>提交 {{ formatTime(selectedRun.createdAt) }}</span><span v-if="selectedRun.status === 'completed'">实际用量 {{ selectedRun.totalTokens }} tokens（输入 {{ selectedRun.promptTokens }} / 输出 {{ selectedRun.outputTokens }}）</span><span v-if="selectedRun.status === 'completed'" :class="{ 'model-experience-charge': selectedRun.billedQuota != null }">{{ selectedRun.billedQuota != null ? `本次扣除 ${formatQuotaUSD(selectedRun.billedQuota)}` : '本次扣额未记录' }}</span><span>结果保留至 {{ formatTime(selectedRun.expiresAt) }}</span></div>
+          <div class="model-experience-meta"><span>提交 {{ formatTime(selectedRun.createdAt) }}</span><span v-if="selectedRun.status === 'completed'">实际用量 {{ selectedRun.totalTokens }} tokens（输入 {{ selectedRun.promptTokens }} / 输出 {{ selectedRun.outputTokens }}）</span><span v-if="selectedRun.status === 'completed'" :class="{ 'model-experience-charge': selectedRun.billedYuan != null }">{{ selectedRun.billedYuan != null ? `本次扣除 ${formatYuan(selectedRun.billedYuan)}（人民币等值）` : '本次扣额未记录' }}</span><span>结果保留至 {{ formatTime(selectedRun.expiresAt) }}</span></div>
         </template>
         <div v-else class="model-experience-empty"><AppIcon name="chat" :size="28" /><strong>等待你的第一次真实体验</strong><span>提交后，这里会显示模型原始回复和实际 token 用量。</span></div>
       </div>

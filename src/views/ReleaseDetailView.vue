@@ -25,6 +25,8 @@ const chartFile = ref(null);
 const chartAudit = ref(null);
 const chartAuditError = ref("");
 const chartAuditing = ref(false);
+const auditedFileName = ref("");
+let chartRequest = 0;
 const versionForm = ref({ version: "", upstreamVersion: "", publisher: "", sourceUrl: "", sourceRevision: "", licenseId: "", licenseUrl: "", manifest: "", dependencies: "[]", permissions: "[]" });
 const grants = ref([]);
 const grantsLoading = ref(false);
@@ -70,6 +72,9 @@ const load = async () => {
   chartFile.value = null;
   chartAudit.value = null;
   chartAuditError.value = "";
+  auditedFileName.value = "";
+  chartRequest += 1;
+  chartAuditing.value = false;
   try {
     record.value = await controlApi.getManagedApp(appId.value);
     form.value = { ...record.value.app, showcase: { screenshots: [], highlights: [], permissions: [], ...record.value.app.showcase } };
@@ -143,13 +148,18 @@ const readManifestFile = async (event) => {
 };
 
 const selectChartFile = (event) => {
+  chartRequest += 1;
   chartFile.value = event.target.files?.[0] || null;
   chartAudit.value = null;
   chartAuditError.value = "";
+  auditedFileName.value = "";
 };
 
 const auditChart = async () => {
-  if (!chartFile.value) return;
+  if (!chartFile.value || chartAuditing.value) return;
+  const file = chartFile.value;
+  const id = appId.value;
+  const request = ++chartRequest;
   chartAuditError.value = "";
   chartAudit.value = null;
   if (chartFile.value.size > 2 * 1024 * 1024) {
@@ -158,11 +168,14 @@ const auditChart = async () => {
   }
   chartAuditing.value = true;
   try {
-    chartAudit.value = await controlApi.auditAppChart(appId.value, chartFile.value);
+    const result = await controlApi.auditAppChart(id, file);
+    if (request !== chartRequest || chartFile.value !== file || appId.value !== id) return;
+    chartAudit.value = result;
+    auditedFileName.value = file.name;
   } catch (cause) {
-    chartAuditError.value = cause instanceof Error ? cause.message : "Chart 检查失败";
+    if (request === chartRequest) chartAuditError.value = cause instanceof Error ? cause.message : "Chart 检查失败";
   } finally {
-    chartAuditing.value = false;
+    if (request === chartRequest) chartAuditing.value = false;
   }
 };
 
@@ -240,6 +253,7 @@ const revokeGrant = async (grant) => {
 };
 
 const save = async (channel = form.value.channel) => {
+  if (saving.value) return;
   if (channel === "Listed" && (listingMissing.value.length || listingInvalid.value.length || form.value.version)) {
     error.value = `Hub 目录上架还缺：${[...listingMissing.value, ...listingInvalid.value, form.value.version && "清空目录展示版本"].filter(Boolean).join("、")}`;
     return;
@@ -290,7 +304,7 @@ const save = async (channel = form.value.channel) => {
   <div class="page detail-workspace-page">
     <button class="back-button" @click="navigate('/ops/apps')"><AppIcon name="arrow" :size="16" />返回应用发布</button>
     <p v-if="loading">正在加载应用发布资料…</p>
-    <section v-if="error" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>操作未完成</strong><p>{{ error }}</p></div><button class="button secondary" @click="load">重新加载</button></section>
+    <section v-if="error" class="ops-note" role="alert"><AppIcon name="warning" :size="19" /><div><strong>操作未完成</strong><p>{{ error }}</p><p v-if="record">已填写内容仍保留，请检查后重新保存。</p></div><button v-if="!record" class="button secondary" @click="load">重新加载</button></section>
     <template v-if="record && form">
       <section class="detail-command-bar internal-detail">
         <div class="app-large-icon" :class="record.app.tone"><AppIcon :name="record.app.icon || 'market'" :size="31" /></div>
@@ -298,12 +312,14 @@ const save = async (channel = form.value.channel) => {
         <div class="detail-command-actions"><StatusBadge :label="record.app.channel === 'Preview' ? '目录预览' : record.release.status" /><button v-if="record.app.channel === 'Listed' || record.app.publicVisible" class="button secondary" @click="navigate(`/market/apps/${encodeURIComponent(appId)}`)">查看已上架详情</button><button class="button secondary" :disabled="saving" @click="save()">保存资料</button><button v-if="record.app.channel === 'Candidate'" class="button primary" :disabled="saving || !canList" @click="save('Listed')">仅上架 Hub 资料</button></div>
       </section>
 
+      <nav class="release-section-nav" aria-label="应用发布页内导航"><a href="#release-basics">应用资料</a><a href="#release-chart">Chart 预检</a><a href="#release-channel">发布状态</a></nav>
+
       <section class="content-panel release-readiness-panel">
         <div class="section-heading"><div><h2>发布检查</h2><p>目录展示、交付包和真实运行分别检查；填写展示字段不会证明应用可运行。</p></div></div>
         <div class="readiness-grid"><div><strong>01 · 资料上架</strong><p>{{ listingMissing.length || listingInvalid.length ? `还需处理：${[...listingMissing, ...listingInvalid].join('、')}` : '展示必填项已齐；可仅上架资料。' }}</p></div><div><strong>02 · Chart 预检</strong><p>{{ chartAudit ? (chartAudit.staticChecksPassed ? '本次上传的静态规则通过；报告仅在本页临时显示。' : '本次上传存在阻断项；请查看报告。') : '请上传 Helm Chart 归档并查看逐项报告。' }}</p></div><div><strong>03 · 版本发布</strong><p>可信制品、隔离渲染和 Station 验证尚未接入；不可发布 Preview / Stable，也不能声称可运行。</p></div></div>
       </section>
 
-      <section class="content-panel manifest-panel">
+      <section id="release-basics" class="content-panel manifest-panel release-section" tabindex="-1" aria-label="应用目录资料">
           <div class="section-heading"><div><h2>第一步 · 应用目录资料</h2><p>星号字段为资料上架必填；资源、镜像和部署条件以受控 Chart 为准。</p></div></div>
           <div class="two-column-form"><label class="form-field"><span>应用名称 *</span><input v-model.trim="form.name" /></label><label class="form-field"><span>应用主分组</span><input :value="form.groupId || '旧版目录未登记'" disabled /></label><label class="form-field"><span>目录展示版本</span><input v-if="chartFlow" :value="record.app.version || '待可信 Chart 版本登记'" disabled /><input v-else v-model.trim="form.version" /></label><label class="form-field"><span>市场分类 *</span><input v-model.trim="form.category" /></label><label v-if="!chartFlow" class="form-field"><span>旧版推荐资源</span><input v-model.trim="form.gpu" /></label><label v-if="!chartFlow" class="form-field"><span>旧版体验时长说明</span><input v-model.trim="form.duration" /></label></div>
           <label class="form-field"><span>一句话简介 *</span><textarea v-model.trim="form.summary" rows="3" /></label>
@@ -322,12 +338,14 @@ const save = async (channel = form.value.channel) => {
           </details>
         </section>
 
-      <section class="content-panel chart-audit-panel">
+      <section id="release-chart" class="content-panel chart-audit-panel release-section" tabindex="-1" aria-label="Chart 预检">
         <div class="section-heading"><div><h2>第二步 · 上传 Helm Chart</h2><p>支持 Helm 打包的 .tgz 文件，最多 2 MiB。Control 仅读取并检查本次上传，不保存为可安装版本。</p></div><span class="candidate-internal-tag">仅内部预检</span></div>
         <p class="candidate-help">归档必备：Chart.yaml（v2/application、名称与应用 ID 一致、固定版本和 appVersion）、values.yaml、Deployment、ClusterIP Service、工作卷、固定镜像标签及 SHA-256；GPU 应用还需声明 GPU 请求与上限。禁止 Secret、公网入口和子 Chart 依赖；目标 Station 仍需单独验收。</p>
-        <div class="chart-audit-actions"><input type="file" accept=".tgz,application/gzip" aria-label="选择 Helm Chart 归档" @change="selectChartFile" /><button class="button secondary" :disabled="!chartFile || chartAuditing" @click="auditChart">{{ chartAuditing ? '正在检查…' : '上传并检查' }}</button></div>
+        <div class="chart-audit-actions"><input type="file" accept=".tgz,application/gzip" aria-label="选择 Helm Chart 归档" :disabled="chartAuditing" @change="selectChartFile" /><button class="button secondary" :disabled="!chartFile || chartAuditing" @click="auditChart">{{ chartAuditing ? '正在检查…' : '上传并检查' }}</button></div>
+        <p v-if="chartAuditing" role="status" class="candidate-help">正在检查 {{ chartFile.name }}，请等待本次报告。</p>
         <p v-if="chartAuditError" class="form-error" role="alert">{{ chartAuditError }}</p>
         <div v-if="chartAudit" class="chart-audit-report">
+          <p>检查文件：<strong>{{ auditedFileName }}</strong></p>
           <p><strong>{{ chartAudit.staticChecksPassed ? '静态检查通过，尚不可部署' : '存在部署阻断项' }}</strong> · {{ chartAudit.chartName || '名称未识别' }} · Chart {{ chartAudit.chartVersion || '版本未识别' }} · App {{ chartAudit.appVersion || '版本未识别' }}</p>
           <p>本次归档 SHA-256：<code>{{ chartAudit.archiveSha256 }}</code></p>
           <ul><li v-for="check in chartAudit.checks" :key="check.code"><strong :class="`chart-audit-${check.status}`">{{ check.status === 'passed' ? '通过' : check.status === 'blocked' ? '阻断' : '待验证' }}</strong> · {{ check.detail }}</li></ul>
@@ -335,7 +353,8 @@ const save = async (channel = form.value.channel) => {
         </div>
       </section>
 
-      <aside class="content-panel release-controls">
+      <aside id="release-channel" class="content-panel release-controls release-section" tabindex="-1" aria-label="发布状态">
+          <p v-if="error" class="form-error" role="alert">{{ error }} · 已填写内容仍保留。</p>
           <div class="section-heading"><div><h2>第三步 · 发布通道</h2><p>Listed 仅在 Hub 展示资料，不授予权益或安装能力。</p></div></div>
           <label class="form-field"><span>通道</span><select v-model="form.channel"><option>Candidate</option><option :disabled="Boolean(form.version)">Listed</option><option v-if="!chartFlow || ['Preview', 'Stable'].includes(record.app.channel)">Preview</option><option v-if="!chartFlow || record.app.channel === 'Stable'">Stable</option><option>Paused</option></select></label>
           <label v-if="!chartFlow || ['Preview', 'Stable'].includes(record.app.channel)" class="form-field"><span>WWW 公开</span><select v-model="form.publicVisible" :disabled="!['Preview', 'Stable'].includes(form.channel)"><option :value="false">不公开</option><option :value="true">公开目录资料</option></select></label>

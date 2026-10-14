@@ -1,4 +1,5 @@
 import { readonly, ref } from "vue";
+import { marketHistoryStateForNavigation } from "./utils/marketNavigation.js";
 
 const normalizePath = (value) => {
   const path = (value || "/").split("?")[0].replace(/\/+$/, "");
@@ -21,7 +22,8 @@ export const navigate = (target) => {
   const url = new URL(target, window.location.origin);
   const next = normalizePath(url.pathname);
   if (next === path.value && url.search === search.value) return;
-  window.history.pushState({}, "", `${next}${url.search}${url.hash}`);
+  const state = marketHistoryStateForNavigation(path.value, next, window.history.state);
+  window.history.pushState(state, "", `${next}${url.search}${url.hash}`);
   path.value = next;
   search.value = url.search;
   window.scrollTo({ top: 0, behavior: "instant" });

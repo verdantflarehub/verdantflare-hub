@@ -9,6 +9,7 @@ import { navigate } from "../router";
 const props = defineProps({ organizationId: String, modelId: { type: String, required: true }, canCreateKey: Boolean });
 const models = ref([]);
 const modelsError = ref("");
+const availabilityLoading = ref(true);
 const keys = ref([]);
 const keysError = ref("");
 const selectedKeyId = ref("");
@@ -16,6 +17,7 @@ const usage = ref(null);
 const usageError = ref("");
 const runs = ref([]);
 const runsError = ref("");
+const runsLoading = ref(true);
 const selectedRunId = ref("");
 const prompt = ref("");
 const chargeConfirmed = ref(false);
@@ -23,12 +25,15 @@ const submitting = ref(false);
 const submitError = ref("");
 const pendingRequest = ref(null);
 let pollTimer;
+let disposed = false;
+let availabilityRequest = 0;
+let runsRequest = 0;
 
 const modelAvailable = computed(() => models.value.some((model) => model.id === props.modelId && model.experienceMode === "chat"));
 const availableKeys = computed(() => keys.value.filter((key) => key.source === "gateway" && key.status === "active" && key.scopes?.includes(props.modelId)));
 const selectedKey = computed(() => availableKeys.value.find((key) => key.id === selectedKeyId.value));
 const selectedRun = computed(() => runs.value.find((run) => run.id === selectedRunId.value) || null);
-const canSubmit = computed(() => modelAvailable.value && selectedKey.value && !modelsError.value && !usageError.value && !keysError.value
+const canSubmit = computed(() => !availabilityLoading.value && !runsLoading.value && modelAvailable.value && selectedKey.value && !modelsError.value && !usageError.value && !keysError.value
   && usage.value?.enabled && usage.value.remainingQuota > 0 && prompt.value.trim().length > 0 && prompt.value.trim().length <= 2000
   && chargeConfirmed.value && !submitting.value && selectedRun.value?.status !== "submitting");
 const statusLabel = (status) => ({ submitting: "运行中", completed: "成功", failed: "失败", outcome_unknown: "结果待核" })[status] || status;
@@ -39,53 +44,70 @@ const formatTime = (value) => {
 };
 
 const loadAvailability = async () => {
+  const request = ++availabilityRequest;
+  availabilityLoading.value = true;
   modelsError.value = "";
   usageError.value = "";
   keysError.value = "";
-  try { models.value = (await controlApi.listModels()) || []; }
-  catch (cause) { modelsError.value = cause instanceof Error ? cause.message : "模型目录加载失败"; }
-  try {
-    keys.value = (await controlApi.listApiKeys()) || [];
-    if (!availableKeys.value.some((key) => key.id === selectedKeyId.value)) selectedKeyId.value = "";
-  } catch (cause) { keysError.value = cause instanceof Error ? cause.message : "API Key 加载失败"; }
-  try { usage.value = await controlApi.getApiUsage(); }
-  catch (cause) { usageError.value = cause instanceof Error ? cause.message : "组织额度读取失败"; }
+  const [modelResult, keyResult, usageResult] = await Promise.allSettled([
+    controlApi.listModels(), controlApi.listApiKeys(), controlApi.getApiUsage(),
+  ]);
+  if (disposed || request !== availabilityRequest) return;
+  models.value = modelResult.status === "fulfilled" ? modelResult.value || [] : [];
+  keys.value = keyResult.status === "fulfilled" ? keyResult.value || [] : [];
+  usage.value = usageResult.status === "fulfilled" ? usageResult.value : null;
+  if (modelResult.status === "rejected") modelsError.value = modelResult.reason instanceof Error ? modelResult.reason.message : "模型目录加载失败";
+  if (keyResult.status === "rejected") keysError.value = keyResult.reason instanceof Error ? keyResult.reason.message : "API Key 加载失败";
+  if (usageResult.status === "rejected") usageError.value = usageResult.reason instanceof Error ? usageResult.reason.message : "组织额度读取失败";
+  if (!availableKeys.value.some((key) => key.id === selectedKeyId.value)) selectedKeyId.value = "";
+  availabilityLoading.value = false;
 };
 const schedulePoll = (id) => {
   window.clearTimeout(pollTimer);
+  if (disposed) return;
   pollTimer = window.setTimeout(() => pollRun(id), 2500);
 };
 const pollRun = async (id) => {
   try {
     const updated = await controlApi.getModelExperienceRun(id);
+    if (disposed) return;
     const index = runs.value.findIndex((run) => run.id === id);
     if (index >= 0) runs.value.splice(index, 1, updated);
     else runs.value.unshift(updated);
     if (updated.status === "submitting") schedulePoll(id);
     else await loadAvailability();
   } catch (cause) {
+    if (disposed) return;
     runsError.value = cause instanceof Error ? cause.message : "体验状态查询失败";
   }
 };
 const loadRuns = async () => {
+  const request = ++runsRequest;
+  runsLoading.value = true;
   runsError.value = "";
   try {
-    runs.value = (await controlApi.listModelExperienceRuns()) || [];
+    const loaded = (await controlApi.listModelExperienceRuns()) || [];
+    if (disposed || request !== runsRequest) return;
+    runs.value = loaded;
     if (!runs.value.some((run) => run.id === selectedRunId.value && run.modelId === props.modelId)) selectedRunId.value = runs.value.find((run) => run.modelId === props.modelId)?.id || "";
     if (selectedRun.value?.status === "submitting") schedulePoll(selectedRun.value.id);
   } catch (cause) {
+    if (disposed || request !== runsRequest) return;
     runsError.value = cause instanceof Error ? cause.message : "体验记录加载失败";
+  } finally {
+    if (!disposed && request === runsRequest) runsLoading.value = false;
   }
 };
 const refresh = () => Promise.all([loadAvailability(), loadRuns()]);
 const submit = async () => {
-  if (!canSubmit.value) return;
+  if (disposed || !canSubmit.value) return;
   submitting.value = true;
   submitError.value = "";
   const request = pendingRequest.value || { requestId: crypto.randomUUID(), modelId: props.modelId, keyId: selectedKeyId.value, prompt: prompt.value.trim() };
   pendingRequest.value = request;
   try {
     const run = await controlApi.createModelExperienceRun(request);
+    if (disposed) return;
     pendingRequest.value = null;
     if (!runs.value.some((item) => item.id === run.id)) runs.value.unshift(run);
     selectedRunId.value = run.id;
@@ -94,15 +116,17 @@ const submit = async () => {
     if (run.status === "submitting") schedulePoll(run.id);
     else await loadAvailability();
   } catch (cause) {
+    if (disposed) return;
     submitError.value = `${cause instanceof Error ? cause.message : "提交失败"}。请先刷新记录核对；再次提交只会使用同一请求 ID，不会创建第二个任务。`;
     await loadRuns();
+    if (disposed) return;
     const recovered = runs.value.find((run) => run.requestId === request.requestId);
     if (recovered) {
       pendingRequest.value = null;
       selectedRunId.value = recovered.id;
       submitError.value = "请求已到达服务器，已从体验记录恢复；请查看右侧状态。";
     }
-  } finally { submitting.value = false; }
+  } finally { if (!disposed) submitting.value = false; }
 };
 watch(() => [props.organizationId, props.modelId], () => {
   window.clearTimeout(pollTimer);
@@ -116,25 +140,27 @@ watch(() => [props.organizationId, props.modelId], () => {
   refresh();
 });
 onMounted(refresh);
-onUnmounted(() => window.clearTimeout(pollTimer));
+onUnmounted(() => { disposed = true; window.clearTimeout(pollTimer); });
 </script>
 
 <template>
   <section class="content-panel model-experience-panel">
-    <div class="section-heading"><div><h2>模型在线体验</h2><p>{{ models.find((model) => model.id === modelId)?.name || modelId }} · 先创建并选择当前组织的 API Key，再使用真实额度体验。</p></div><StatusBadge :label="modelAvailable && selectedKey && usage?.enabled && usage.remainingQuota > 0 && !modelsError && !usageError && !keysError ? '可调用' : '待核验'" /></div>
-    <div class="model-experience-balance"><span>组织 API 余额（按固定汇率折算）</span><strong>{{ usage && !usageError ? formatYuan(usage.remainingYuan) : '暂不可用' }}</strong><button class="text-button" @click="refresh">刷新状态</button></div>
+    <div class="section-heading"><div><h2>模型在线体验</h2><p>{{ models.find((model) => model.id === modelId)?.name || modelId }} · 先创建并选择当前组织的 API Key，再使用真实额度体验。</p></div><StatusBadge :label="availabilityLoading ? '核验中' : modelAvailable && selectedKey && usage?.enabled && usage.remainingQuota > 0 && !modelsError && !usageError && !keysError ? '可调用' : '待核验'" /></div>
+    <div class="model-experience-balance" :aria-busy="availabilityLoading"><span>组织 API 余额（按固定汇率折算）</span><strong>{{ availabilityLoading ? '正在读取…' : usage && !usageError ? formatYuan(usage.remainingYuan) : '暂不可用' }}</strong><button class="text-button" :disabled="availabilityLoading || runsLoading" @click="refresh">{{ availabilityLoading || runsLoading ? '正在刷新…' : '刷新状态' }}</button></div>
+    <p v-if="availabilityLoading" role="status">正在核验模型、API Key 与组织额度…</p>
     <div v-if="modelsError || usageError || keysError" class="ops-note"><AppIcon name="warning" :size="18" /><div><strong>暂时无法发起体验</strong><p>{{ modelsError || usageError || keysError }}</p></div></div>
-    <div v-if="!keysError && !availableKeys.length" class="ops-note"><AppIcon name="key" :size="18" /><div><strong>先创建可用于此模型的 API Key</strong><p>{{ canCreateKey ? '当前组织还没有授权此模型的有效 Key。创建后返回这里选择，系统不会使用隐藏的内部凭证。' : '请联系组织管理员创建授权此模型的 Key；当前没有可用 Key，无法发起付费体验。' }}</p></div><button v-if="canCreateKey" class="button secondary" @click="navigate(`/api/keys?return_to=${encodeURIComponent(`/experience?model=${modelId}`)}`)">创建 API Key</button></div>
+    <div v-if="!availabilityLoading && !modelsError && !modelAvailable" class="ops-note"><AppIcon name="warning" :size="18" /><div><strong>该模型当前未开放在线体验</strong><p>模型的可用状态已变化，请刷新状态或重新选择模型。</p></div></div>
+    <div v-if="!availabilityLoading && modelAvailable && !keysError && !availableKeys.length" class="ops-note"><AppIcon name="key" :size="18" /><div><strong>先创建可用于此模型的 API Key</strong><p>{{ canCreateKey ? '当前组织还没有授权此模型的有效 Key。创建后返回这里选择，系统不会使用隐藏的内部凭证。' : '请联系组织管理员创建授权此模型的 Key；当前没有可用 Key，无法发起付费体验。' }}</p></div><button v-if="canCreateKey" class="button secondary" @click="navigate(`/api/keys?return_to=${encodeURIComponent(`/experience?model=${modelId}`)}`)">创建 API Key</button></div>
     <div class="model-experience-layout">
       <div class="model-experience-form">
-        <label class="form-field"><span>本次体验使用的 API Key</span><select v-model="selectedKeyId" :disabled="!!pendingRequest || !availableKeys.length"><option value="">请选择已授权此模型的 Key</option><option v-for="key in availableKeys" :key="key.id" :value="key.id">{{ key.name }} · {{ key.prefix }}</option></select></label>
+        <label class="form-field"><span>本次体验使用的 API Key</span><select v-model="selectedKeyId" :disabled="availabilityLoading || !!pendingRequest || !availableKeys.length"><option value="">{{ availabilityLoading ? '正在读取可用 Key…' : '请选择已授权此模型的 Key' }}</option><option v-for="key in availableKeys" :key="key.id" :value="key.id">{{ key.name }} · {{ key.prefix }}</option></select></label>
         <label class="form-field"><span>输入问题或创作指令</span><textarea v-model="prompt" rows="8" maxlength="2000" :disabled="!modelAvailable || !!pendingRequest" placeholder="例如：为一部环保主题短片写一段 80 字的开场旁白。" /></label>
         <div class="model-experience-limit"><span>最多 2,000 字；输出最多 256 tokens</span><span>{{ prompt.trim().length }} / 2,000</span></div>
         <label class="model-experience-consent"><input v-model="chargeConfirmed" type="checkbox" :disabled="!modelAvailable || !selectedKey || !usage?.enabled || usage.remainingQuota <= 0" /><span>我了解这是使用所选 API Key 的实际模型调用，会按组织网关规则扣除 API 额度。</span></label>
         <button class="button primary" :disabled="!canSubmit" @click="submit"><AppIcon name="spark" :size="17" />{{ submitting ? '正在创建任务…' : pendingRequest ? '核对/继续原请求' : '开始真实体验' }}</button>
         <p v-if="pendingRequest" class="ops-note">原请求状态尚未确认。继续时会沿用同一请求 ID；如果原请求未到达服务器，这一步可能首次产生费用。</p>
-        <p v-if="usage && usage.remainingQuota <= 0" class="form-error">组织额度不足，请联系客户成功管理员分配 API 额度。</p>
-        <p v-else-if="usage && !usage.enabled" class="form-error">组织网关账号已停用，请联系管理员。</p>
+        <p v-if="!availabilityLoading && usage && usage.remainingQuota <= 0" class="form-error">组织额度不足，请联系客户成功管理员分配 API 额度。</p>
+        <p v-else-if="!availabilityLoading && usage && !usage.enabled" class="form-error">组织网关账号已停用，请联系管理员。</p>
         <p v-if="submitError" class="form-error" role="alert">{{ submitError }}</p>
       </div>
       <div class="model-experience-result" aria-live="polite">
@@ -146,9 +172,11 @@ onUnmounted(() => window.clearTimeout(pollTimer));
           <div v-else class="model-experience-failure"><AppIcon name="warning" :size="20" /><span>{{ errorLabel(selectedRun.errorCode) }}</span></div>
           <div class="model-experience-meta"><span>提交 {{ formatTime(selectedRun.createdAt) }}</span><span v-if="selectedRun.status === 'completed'">实际用量 {{ selectedRun.totalTokens }} tokens（输入 {{ selectedRun.promptTokens }} / 输出 {{ selectedRun.outputTokens }}）</span><span v-if="selectedRun.status === 'completed'" :class="{ 'model-experience-charge': selectedRun.billedYuan != null }">{{ selectedRun.billedYuan != null ? `本次扣除 ${formatYuan(selectedRun.billedYuan)}（人民币等值）` : '本次扣额未记录' }}</span><span>结果保留至 {{ formatTime(selectedRun.expiresAt) }}</span></div>
         </template>
+        <div v-else-if="runsLoading" class="model-experience-pending" role="status"><div class="loading-ring" /><span>正在读取体验记录…</span></div>
+        <div v-else-if="runsError" class="model-experience-empty"><AppIcon name="warning" :size="28" /><strong>暂时无法读取体验记录</strong><span>请在下方重试，已有任务不会重新提交。</span></div>
         <div v-else class="model-experience-empty"><AppIcon name="chat" :size="28" /><strong>等待你的第一次真实体验</strong><span>提交后，这里会显示模型原始回复和实际 token 用量。</span></div>
       </div>
     </div>
-    <div class="model-experience-history"><div class="section-heading"><div><h3>最近 24 小时</h3><p>只显示你在当前组织发起的任务；超时结果不自动重试。</p></div><button class="text-button" @click="loadRuns">刷新记录</button></div><p v-if="runsError" class="form-error">{{ runsError }}</p><div v-if="runs.some((run) => run.modelId === modelId)" class="model-experience-run-list"><button v-for="run in runs.filter((item) => item.modelId === modelId)" :key="run.id" :class="{ active: selectedRunId === run.id }" @click="selectedRunId = run.id; run.status === 'submitting' && schedulePoll(run.id)"><span><strong>{{ run.modelId }}</strong><small>{{ formatTime(run.createdAt) }}</small></span><StatusBadge :label="statusLabel(run.status)" /><AppIcon name="chevron" :size="16" /></button></div><p v-else-if="!runsError" class="model-experience-history-empty">暂无模型体验记录。</p></div>
+    <div class="model-experience-history" :aria-busy="runsLoading"><div class="section-heading"><div><h3>最近 24 小时</h3><p>只显示你在当前组织发起的任务；超时结果不自动重试。</p></div><button class="text-button" :disabled="runsLoading" @click="loadRuns">{{ runsLoading ? '正在读取…' : runsError ? '重试读取记录' : '刷新记录' }}</button></div><p v-if="runsError" class="form-error" role="alert">{{ runsError }}</p><div v-if="runs.some((run) => run.modelId === modelId)" class="model-experience-run-list"><button v-for="run in runs.filter((item) => item.modelId === modelId)" :key="run.id" :class="{ active: selectedRunId === run.id }" @click="selectedRunId = run.id; run.status === 'submitting' && schedulePoll(run.id)"><span><strong>{{ run.modelId }}</strong><small>{{ formatTime(run.createdAt) }}</small></span><StatusBadge :label="statusLabel(run.status)" /><AppIcon name="chevron" :size="16" /></button></div><p v-else-if="runsLoading" class="model-experience-history-empty" role="status">正在读取体验记录…</p><p v-else-if="!runsError" class="model-experience-history-empty">暂无模型体验记录。</p></div>
   </section>
 </template>

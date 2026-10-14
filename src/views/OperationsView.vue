@@ -5,6 +5,7 @@ import AppIcon from "../components/AppIcon.vue";
 import MetricCard from "../components/MetricCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { navigate } from "../router";
+import { useModal } from "../composables/useModal";
 
 const props = defineProps({ path: String });
 const emit = defineEmits(["toast"]);
@@ -18,6 +19,8 @@ const releaseFilter = ref("全部");
 const planFilter = ref("全部");
 const showCreate = ref(false);
 const saving = ref(false);
+const createError = ref("");
+const { dialogRef, closeModal } = useModal(showCreate, saving);
 const form = ref({ id: "", name: "", shortName: "", groupId: "image", category: "", summary: "", developer: "", plan: "Pilot" });
 const appBasicsComplete = computed(() => /^[a-z0-9][a-z0-9-]{1,62}$/.test(form.value.id)
   && [...form.value.name].length >= 2 && Boolean(form.value.groupId && form.value.category && form.value.summary));
@@ -46,12 +49,14 @@ const filteredOrganizations = computed(() => organizations.value.filter((item) =
 ));
 
 const openCreate = () => {
+  createError.value = "";
   form.value = { id: "", name: "", shortName: "", groupId: "image", category: "", summary: "", developer: "", plan: "Pilot" };
   showCreate.value = true;
 };
 const create = async () => {
+  if (saving.value) return;
   saving.value = true;
-  error.value = "";
+  createError.value = "";
   try {
     if (section.value === "apps") {
       const record = await controlApi.createManagedApp({
@@ -74,7 +79,7 @@ const create = async () => {
       navigate(`/ops/organizations/${record.organization.organizationId}`);
     }
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : "创建失败";
+    createError.value = cause instanceof Error ? cause.message : "创建失败";
   } finally {
     saving.value = false;
   }
@@ -103,12 +108,13 @@ const create = async () => {
     </template>
 
     <Transition name="modal">
-      <div v-if="showCreate" class="modal-backdrop" @click.self="showCreate = false">
+      <dialog v-if="showCreate" ref="dialogRef" class="modal-backdrop" aria-labelledby="create-record-title" :aria-busy="saving" @cancel.prevent="closeModal" @click.self="closeModal">
         <section class="modal-card invite-modal">
-          <header><div><span class="page-overline">{{ section === 'apps' ? 'NEW APP RECORD' : 'NEW ORGANIZATION' }}</span><h2>{{ section === 'apps' ? '新建应用资料' : '新建客户组织' }}</h2></div><button class="icon-button" aria-label="关闭弹窗" @click="showCreate = false"><AppIcon name="close" /></button></header>
+          <header><div><span class="page-overline">{{ section === 'apps' ? 'NEW APP RECORD' : 'NEW ORGANIZATION' }}</span><h2 id="create-record-title">{{ section === 'apps' ? '新建应用资料' : '新建客户组织' }}</h2></div><button class="icon-button" aria-label="关闭弹窗" :disabled="saving" @click="closeModal"><AppIcon name="close" /></button></header>
+          <fieldset class="modal-fields" :disabled="saving">
           <template v-if="section === 'apps'">
             <p class="candidate-help">第一步填写应用基本信息。星号为创建必填；创建后补齐客户展示资料，再上传 Chart 预检。静态报告不会发布或安装应用。</p>
-            <label class="form-field"><span>应用 ID *（2–63 位小写字母、数字或连字符）</span><input v-model.trim="form.id" placeholder="例如 comfyui" /></label>
+            <label class="form-field"><span>应用 ID *（2–63 位小写字母、数字或连字符）</span><input v-model.trim="form.id" autofocus placeholder="例如 comfyui" /></label>
             <label class="form-field"><span>应用名称 *（至少 2 个字符）</span><input v-model.trim="form.name" /></label>
             <label class="form-field"><span>应用主分组 *</span><select v-model="form.groupId"><option value="image">Image</option><option value="music">Music</option><option value="video">Video</option><option value="agent">Agent（仅目录）</option></select></label>
             <label class="form-field"><span>市场分类 *</span><input v-model.trim="form.category" placeholder="例如 图像创作" /></label>
@@ -116,13 +122,15 @@ const create = async () => {
             <label class="form-field"><span>简介 *</span><input v-model.trim="form.summary" placeholder="一句话说明用途，不填写安装承诺" /></label>
           </template>
           <template v-else>
-            <label class="form-field"><span>组织名称</span><input v-model.trim="form.name" /></label>
+            <label class="form-field"><span>组织名称</span><input v-model.trim="form.name" autofocus /></label>
             <label class="form-field"><span>简称（可选）</span><input v-model.trim="form.shortName" /></label>
             <label class="form-field"><span>套餐</span><select v-model="form.plan"><option>Pilot</option><option>Studio</option><option>Enterprise</option></select></label>
           </template>
-          <footer><button class="button secondary" @click="showCreate = false">取消</button><button class="button primary" :disabled="saving || (section === 'apps' ? !appBasicsComplete : !form.name)" @click="create">{{ saving ? '正在保存…' : '创建' }}</button></footer>
+          </fieldset>
+          <p v-if="createError" class="form-error" role="alert">{{ createError }}</p>
+          <footer><button class="button secondary" :disabled="saving" @click="closeModal">取消</button><button class="button primary" :disabled="saving || (section === 'apps' ? !appBasicsComplete : !form.name)" @click="create">{{ saving ? '正在保存…' : '创建' }}</button></footer>
         </section>
-      </div>
+      </dialog>
     </Transition>
   </div>
 </template>

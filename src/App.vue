@@ -159,6 +159,6 @@ onMounted(loadContext);
   </div>
 
   <Transition name="toast">
-    <div v-if="toast" class="toast-message"><AppIcon name="check" :size="17" />{{ toast }}</div>
+    <div v-if="toast" class="toast-message" role="status" aria-live="polite" aria-atomic="true">{{ toast }}</div>
   </Transition>
 </template>

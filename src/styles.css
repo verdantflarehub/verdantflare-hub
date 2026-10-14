@@ -443,6 +443,25 @@ code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .entitlement-list label { min-height: 64px; padding: 9px 12px; display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
 .entitlement-list label:hover { border-color: rgba(76,227,154,.28); }.entitlement-list label > span:nth-child(2) { display: flex; flex-direction: column; gap: 4px; }.entitlement-list strong { font-size: 12px; }.entitlement-list small { color: var(--muted); font-size: 10px; }
 .entitlement-list input { width: 17px; height: 17px; accent-color: var(--green); }
+.entitlement-summary { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+.entitlement-list label.selected { border-color: var(--green); }
+.entitlement-list label > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
+.entitlement-save { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.entitlement-save > span { color: var(--muted); font-size: 13px; }
+dialog.modal-backdrop { width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; border: 0; color: inherit; }
+dialog.modal-backdrop::backdrop { background: transparent; }
+.modal-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
+.release-section-nav { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+.release-section-nav a { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--paper); white-space: nowrap; }
+.release-section-nav a:hover { border-color: var(--green); color: var(--green); }
+.release-section { scroll-margin-top: 24px; }
+.market-availability { margin-bottom: 20px; }
+.market-availability h2 { margin: 0 0 12px; font-size: 18px; }
+.market-availability p { margin: 8px 0 0; color: var(--muted); line-height: 1.7; }
+.market-availability p strong { color: var(--paper); }
+.market-technical-details { margin-top: 20px; border-top: 1px solid var(--line); }
+.market-technical-details summary { padding: 15px 0; cursor: pointer; font-weight: 600; }
+.market-technical-details summary:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 .customer-policy .form-field + .form-field { margin-top: 13px; }.organization-members { margin-top: 24px; }
 .organization-credit { margin: 20px 0 24px; }.organization-credit .metric-grid { margin: 18px 0; }.credit-grant-form { display: flex; align-items: end; gap: 12px; }.credit-grant-form .form-field { flex: 1; max-width: 280px; }.credit-help { margin: 12px 0 0; color: var(--muted); font-size: 11px; }.form-error { margin: 12px 0; color: var(--coral); font-size: 12px; }
 .guest-picker { width: min(560px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; }

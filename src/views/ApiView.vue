@@ -7,6 +7,7 @@ import MetricCard from "../components/MetricCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { navigate } from "../router";
 import { formatYuan, formatUsagePercent } from "../utils/quota";
+import { useModal } from "../composables/useModal";
 
 const props = defineProps({ path: String, query: { type: String, default: "" }, organization: Object, organizations: { type: Array, default: () => [] } });
 const emit = defineEmits(["toast", "switch-organization"]);
@@ -17,6 +18,7 @@ const keysError = ref("");
 const showCreateKey = ref(false);
 const keyDraft = ref({ name: "", scopes: [], expiresInDays: 90, requestId: "" });
 const creatingKey = ref(false);
+const { dialogRef: createKeyDialog, closeModal: closeCreateKey } = useModal(showCreateKey, creatingKey);
 const createdKey = ref(null);
 const probeResults = ref({});
 const probingKeyId = ref("");
@@ -157,12 +159,14 @@ const revokeKey = async (key) => {
 };
 
 const openCreateKey = () => {
+  if (creatingKey.value || showCreateKey.value) return;
   const initialModel = models.value.find((model) => model.id === experienceReturnModelId.value) || models.value[0];
   keyDraft.value = { name: "", scopes: initialModel ? [initialModel.id] : [], expiresInDays: 90, requestId: crypto.randomUUID() };
   keysError.value = "";
   showCreateKey.value = true;
 };
 const createKey = async () => {
+  if (creatingKey.value || keyDraft.value.name.trim().length < 2 || !keyDraft.value.scopes.length) return;
   creatingKey.value = true;
   keysError.value = "";
   try {
@@ -230,7 +234,7 @@ const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? 
       <section class="catalog-card-grid" aria-label="已上架模型">
         <CatalogCard v-for="model in filteredModels" :key="model.id" :title="model.name" :meta="`${model.provider} · ${model.id}`" :description="model.type" icon="models" :icon-url="model.providerIconUrl" :tags="modelCardTags(model)" :status="model.experienceMode === 'chat' ? '可体验' : '体验待接入'" :status-tone="model.experienceMode === 'chat' ? 'positive' : 'neutral'" :actions="modelCardActions(model)" :highlighted="model.id === requestedModelId" />
       </section>
-      <div v-if="!modelsLoading && !modelsError && !filteredModels.length" class="empty-state"><AppIcon name="search" :size="26" /><strong>暂无已上架模型</strong><span>请运营管理员核对网关模型，并在 Hub 模型上架页公开。</span></div>
+      <div v-if="!modelsLoading && !modelsError && !filteredModels.length" class="empty-state"><AppIcon name="search" :size="26" /><strong>{{ models.length ? '没有匹配的模型' : '暂无已上架模型' }}</strong><span>{{ models.length ? '换个关键词，或清空搜索查看全部模型。' : '请运营管理员核对网关模型，并在 Hub 模型上架页公开。' }}</span><button v-if="models.length" class="button secondary" @click="modelSearch = ''">清空搜索</button></div>
     </template>
 
     <template v-else-if="section === 'keys'">
@@ -272,6 +276,17 @@ const codeSamples = computed(() => selectedModel.value === "verdantflare-sd2" ? 
       </template>
     </template>
 
-    <Transition name="modal"><div v-if="showCreateKey" class="modal-backdrop" @click.self="showCreateKey = false"><section class="modal-card key-create-modal"><header><div><span class="page-overline">NEW API KEY</span><h2>创建组织 API Key</h2><p>仅授权选中的已上架模型。密钥创建后仅显示一次。</p></div><button class="icon-button" aria-label="关闭弹窗" @click="showCreateKey = false"><AppIcon name="close" /></button></header><label class="form-field"><span>名称</span><input v-model.trim="keyDraft.name" maxlength="50" placeholder="例如：生产环境" /></label><div class="form-field"><span>授权模型</span><div class="key-model-options"><label v-for="model in models" :key="model.id"><input v-model="keyDraft.scopes" type="checkbox" :value="model.id" /><span>{{ model.name }}<small>{{ model.id }}</small></span></label></div></div><label class="form-field"><span>有效期</span><select v-model.number="keyDraft.expiresInDays"><option :value="30">30 天</option><option :value="90">90 天</option><option :value="180">180 天</option><option :value="365">365 天</option></select></label><p v-if="keysError" class="form-error">{{ keysError }}</p><footer><button class="button secondary" @click="showCreateKey = false">取消</button><button class="button primary" :disabled="creatingKey || keyDraft.name.trim().length < 2 || !keyDraft.scopes.length" @click="createKey">{{ creatingKey ? '正在创建…' : '创建并显示密钥' }}</button></footer></section></div></Transition>
+    <Transition name="modal">
+      <dialog v-if="showCreateKey" ref="createKeyDialog" class="modal-backdrop" aria-labelledby="create-key-title" aria-describedby="create-key-description" :aria-busy="creatingKey" @cancel.prevent="closeCreateKey" @click.self="closeCreateKey">
+        <form class="modal-card key-create-modal" @submit.prevent="createKey">
+          <header><div><span class="page-overline">NEW API KEY</span><h2 id="create-key-title">创建组织 API Key</h2><p id="create-key-description">仅授权选中的已上架模型。密钥创建后仅显示一次。</p></div><button type="button" class="icon-button" aria-label="关闭弹窗" :disabled="creatingKey" @click="closeCreateKey"><AppIcon name="close" /></button></header>
+          <label class="form-field"><span>名称</span><input v-model.trim="keyDraft.name" autofocus required minlength="2" maxlength="50" :disabled="creatingKey" placeholder="例如：生产环境" /></label>
+          <div class="form-field"><span>授权模型</span><div class="key-model-options"><label v-for="model in models" :key="model.id"><input v-model="keyDraft.scopes" type="checkbox" :value="model.id" :disabled="creatingKey" /><span>{{ model.name }}<small>{{ model.id }}</small></span></label></div></div>
+          <label class="form-field"><span>有效期</span><select v-model.number="keyDraft.expiresInDays" :disabled="creatingKey"><option :value="30">30 天</option><option :value="90">90 天</option><option :value="180">180 天</option><option :value="365">365 天</option></select></label>
+          <p v-if="keysError" class="form-error" role="alert">{{ keysError }}</p>
+          <footer><button type="button" class="button secondary" :disabled="creatingKey" @click="closeCreateKey">取消</button><button type="submit" class="button primary" :disabled="creatingKey || keyDraft.name.trim().length < 2 || !keyDraft.scopes.length">{{ creatingKey ? '正在创建…' : '创建并显示密钥' }}</button></footer>
+        </form>
+      </dialog>
+    </Transition>
   </div>
 </template>

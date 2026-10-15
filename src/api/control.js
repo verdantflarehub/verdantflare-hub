@@ -28,10 +28,12 @@ export const getCenterContext = () => request("/context");
 
 export const controlApi = {
   getCenterContext,
-  getSurveyStats: () => request("/ops/surveys/yunnan-202610/stats"),
-  setSurveySettings: (open, expectedVersion) => request("/ops/surveys/yunnan-202610/settings", { method: "PUT", body: JSON.stringify({ open, expectedVersion }) }),
-  listSurveyResponses: (offset = 0, limit = 20) => request(`/ops/surveys/yunnan-202610/responses?offset=${offset}&limit=${limit}`),
-  getSurveyResponse: (id) => request(`/ops/surveys/yunnan-202610/responses/${encodeURIComponent(id)}`),
+  listSurveys: () => request("/ops/surveys"),
+  createSurvey: (payload) => request("/ops/surveys", { method: "POST", body: JSON.stringify(payload) }),
+  getSurveyStats: (surveyId) => request(`/ops/surveys/${encodeURIComponent(surveyId)}/stats`),
+  setSurveySettings: (surveyId, open, expectedVersion) => request(`/ops/surveys/${encodeURIComponent(surveyId)}/settings`, { method: "PUT", body: JSON.stringify({ open, expectedVersion }) }),
+  listSurveyResponses: (surveyId, offset = 0, limit = 20) => request(`/ops/surveys/${encodeURIComponent(surveyId)}/responses?offset=${offset}&limit=${limit}`),
+  getSurveyResponse: (surveyId, id) => request(`/ops/surveys/${encodeURIComponent(surveyId)}/responses/${encodeURIComponent(id)}`),
   setActiveOrganization: (organizationId) => request("/context/active-organization", { method: "PUT", body: JSON.stringify({ organizationId }) }),
   getOverview: () => request("/overview"),
   getGuestCatalog: () => request("/guest/catalog"),

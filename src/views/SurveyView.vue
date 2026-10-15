@@ -1,9 +1,13 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from "vue";
-import { surveyApi, surveyAdminPath } from "../api/survey";
+import { createSurveyApi, surveyDetailPath } from "../api/survey";
 import { surveyGroups, toggleSurveyChoice, validateSurveyForm, isSurveyClosed } from "../utils/survey";
 import "../survey.css";
 
+const props = defineProps({ surveyId: { type: String, required: true } });
+const surveyApi = createSurveyApi(props.surveyId);
+const metadata = ref({ name: props.surveyId === "yunnan-202610" ? "云南交流" : "交流问卷", description: "需求反馈" });
+const adminPath = surveyDetailPath(props.surveyId);
 const page = ref(null);
 const loading = ref(true);
 const busy = ref(false);
@@ -110,12 +114,16 @@ async function submit() {
     }
   } finally { busy.value = false; }
 }
-onMounted(initialize);
+onMounted(async () => {
+  try { metadata.value = await surveyApi.metadata(); }
+  catch (cause) { error.value = cause.message; unavailable.value = true; loading.value = false; return; }
+  await initialize();
+});
 </script>
 
 <template>
   <main class="survey-public survey-ui">
-    <header class="survey-brand"><img src="/brand/verdantflare-logo.png" alt="" /><span>VERDANTFLARE <small>云南交流 · 会前问卷</small></span></header>
+    <header class="survey-brand"><img src="/brand/verdantflare-logo.png" alt="" /><span>VERDANTFLARE <small>{{ metadata.name }} · 问卷</small></span></header>
     <section class="survey-intro">
       <span class="survey-eyebrow">从真实项目出发</span>
       <h1>了解您的制作流程，<br />让交流更有针对性。</h1>
@@ -127,7 +135,7 @@ onMounted(initialize);
       <button class="button secondary" @click="initialize">重新尝试</button>
     </section>
     <section v-else-if="receipt" class="survey-card survey-success" role="status">
-      <span class="survey-eyebrow">已收到您的反馈</span><h2>谢谢，云南见。</h2>
+      <span class="survey-eyebrow">已收到您的反馈</span><h2>谢谢您的填写。</h2>
       <p>本次答卷已保存，无需重复提交。VF 团队会用这些反馈准备交流内容，并遵守您的使用许可。</p>
       <p class="survey-muted">回执编号</p><code class="survey-receipt">{{ receipt }}</code>
     </section>
@@ -188,6 +196,6 @@ onMounted(initialize);
       </div>
       <p class="survey-muted">回答仅在点击提交后保存。网络失败可重试，同一填写会话不会重复计数。</p>
     </form>
-    <footer class="survey-footer">VerdantFlare · 本次内容生产需求交流 <a :href="surveyAdminPath">管理员入口</a></footer>
+    <footer class="survey-footer">VerdantFlare · {{ metadata.name }} <a :href="adminPath">管理员入口</a></footer>
   </main>
 </template>

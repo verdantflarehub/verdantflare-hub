@@ -18,7 +18,8 @@ import SessionDetailView from "./views/SessionDetailView.vue";
 import SettingsView from "./views/SettingsView.vue";
 import SurveyView from "./views/SurveyView.vue";
 import SurveyAdminView from "./views/SurveyAdminView.vue";
-import { surveyPath, surveyAdminPath } from "./api/survey";
+import SurveyListView from "./views/SurveyListView.vue";
+import { surveyListPath } from "./api/survey";
 import { theme, toggleTheme } from "./theme";
 
 const loginUrl = import.meta.env.VITE_LOGIN_URL || "https://login.verdantflarehub.com/sign-in";
@@ -39,11 +40,15 @@ const activeOrganization = computed(() => {
 const canManageApps = computed(() => activeOrganization.value?.roles?.includes("app_ops_admin") || false);
 const canManageModels = computed(() => activeOrganization.value?.roles?.includes("api_ops_admin") || false);
 const canManageOrganizations = computed(() => activeOrganization.value?.roles?.includes("customer_success_admin") || false);
-const publicSurvey = computed(() => currentPath.value === surveyPath);
+const publicSurveyId = computed(() => /^\/surveys\/(yunnan-202610|survey-[0-9a-f]{32})$/.exec(currentPath.value)?.[1] || "");
+const publicSurvey = computed(() => Boolean(publicSurveyId.value));
 
 const route = computed(() => {
   const path = currentPath.value;
-  if (path === surveyAdminPath && canManageOrganizations.value && activeOrganization.value?.organizationId === "org_verdantflare") return { component: SurveyAdminView, area: "operations" };
+  if (canManageOrganizations.value && activeOrganization.value?.organizationId === "org_verdantflare") {
+    if (path === surveyListPath) return { component: SurveyListView, area: "operations" };
+    if (/^\/ops\/surveys\/(yunnan-202610|survey-[0-9a-f]{32})$/.test(path)) return { component: SurveyAdminView, area: "operations" };
+  }
   if (path === "/") return { component: OverviewView, area: "overview" };
   if (path === "/market" || path.startsWith("/market/apps/")) return { component: MarketView, area: "market" };
   if (path.startsWith("/experience/sessions/")) return { component: SessionDetailView, area: "experience" };
@@ -116,7 +121,7 @@ watch(publicSurvey, (isPublic) => { if (!isPublic) loadContext(); }, { immediate
     <svg v-else aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.98 13.1A9 9 0 0 1 10.9 3.02 9 9 0 1 0 20.98 13.1Z" /></svg>
     <span>{{ theme === 'dark' ? '浅色' : '深色' }}</span>
   </button>
-  <SurveyView v-if="publicSurvey" />
+  <SurveyView v-if="publicSurvey" :key="publicSurveyId" :survey-id="publicSurveyId" />
   <div v-else-if="loading" class="context-state loading-state">
     <img src="/brand/verdantflare-logo.png" alt="VerdantFlare" />
     <div class="loading-ring" />

@@ -1,10 +1,14 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { controlApi } from "../api/control";
-import { surveyPath } from "../api/survey";
+import { surveyListPath, surveyPublicPath } from "../api/survey";
+import { navigate } from "../router";
 import { surveyPercent } from "../utils/survey";
 import "../survey.css";
 
+const props = defineProps({ path: { type: String, required: true } });
+const surveyId = props.path.split("/").at(-1);
+const surveyPath = surveyPublicPath(surveyId);
 const stats = ref(null);
 const responses = ref(null);
 const detail = ref(null);
@@ -39,7 +43,7 @@ async function load(nextOffset = 0) {
   settings.value = null;
   settingsError.value = "";
   try {
-    const [summary, list] = await Promise.all([controlApi.getSurveyStats(), controlApi.listSurveyResponses(nextOffset, pageSize)]);
+    const [summary, list] = await Promise.all([controlApi.getSurveyStats(surveyId), controlApi.listSurveyResponses(surveyId, nextOffset, pageSize)]);
     stats.value = summary;
     settings.value = summary?.settings || null;
     responses.value = list;
@@ -52,12 +56,12 @@ async function toggleOpen() {
   savingSettings.value = true;
   settingsError.value = "";
   try {
-    settings.value = await controlApi.setSurveySettings(!settings.value.open, settings.value.version);
+    settings.value = await controlApi.setSurveySettings(surveyId, !settings.value.open, settings.value.version);
   } catch (cause) {
     settingsError.value = cause.message;
     settings.value = null;
     // A timeout may have committed; read back rather than toggling blindly again.
-    try { settings.value = (await controlApi.getSurveyStats())?.settings || null; } catch { /* Explicit unknown state, retry through refresh. */ }
+    try { settings.value = (await controlApi.getSurveyStats(surveyId))?.settings || null; } catch { /* Explicit unknown state, retry through refresh. */ }
   } finally { savingSettings.value = false; }
 }
 async function copyLink() {
@@ -69,7 +73,7 @@ async function openDetail(id) {
   detailLoading.value = true;
   detailError.value = "";
   detail.value = null;
-  try { detail.value = await controlApi.getSurveyResponse(id); }
+  try { detail.value = await controlApi.getSurveyResponse(surveyId, id); }
   catch (cause) { detailError.value = cause.message; }
   finally { detailLoading.value = false; }
 }
@@ -79,7 +83,7 @@ onMounted(() => load());
 <template>
   <section class="survey-admin survey-ui">
     <header class="survey-admin-head">
-      <div><span class="survey-eyebrow">内部运营 / 问卷</span><h1>云南交流 · 需求反馈</h1><p class="survey-muted">仅 VF 内部客户成功管理员可见。小样本不代表行业比例；提交数不等于独立人数。</p></div>
+      <div><button class="survey-back" type="button" @click="navigate(surveyListPath)">← 返回交流问卷</button><span class="survey-eyebrow">内部运营 / 问卷</span><h1>{{ stats?.metadata?.name || '问卷详情' }}<template v-if="stats?.metadata?.description"> · {{ stats.metadata.description }}</template></h1><p class="survey-muted">仅 VF 内部客户成功管理员可见。小样本不代表行业比例；提交数不等于独立人数。</p></div>
       <div class="survey-actions"><a class="button secondary" :href="surveyPath" target="_blank" rel="noopener">打开填写页</a><button class="button primary" :disabled="loading || savingSettings" @click="load(0)">刷新</button></div>
     </header>
     <p v-if="loading" class="survey-card" role="status">正在读取问卷数据…</p>

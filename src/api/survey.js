@@ -1,9 +1,12 @@
 export const surveyPath = "/surveys/yunnan-202610";
 export const surveyAdminPath = "/ops/surveys/yunnan-202610";
-const base = `${(import.meta.env.VITE_CONTROL_API_BASE || "/api/control").replace(/\/$/, "")}/public${surveyPath}`;
+export const surveyListPath = "/ops/surveys";
+export const surveyPublicPath = (id) => `/surveys/${encodeURIComponent(id)}`;
+export const surveyDetailPath = (id) => `/ops/surveys/${encodeURIComponent(id)}`;
+const controlBase = (import.meta.env.VITE_CONTROL_API_BASE || "/api/control").replace(/\/$/, "");
 
 // Unlike Hub account APIs, an expired guest session must never redirect to VF Login.
-async function request(path, body) {
+async function request(base, path, body) {
   const response = await fetch(`${base}${path}`, {
     credentials: "include",
     cache: "no-store",
@@ -18,9 +21,14 @@ async function request(path, body) {
   }
   return result;
 }
-export const surveyApi = {
-  page: () => request(""),
-  captcha: () => request("/captcha"),
-  session: (input) => request("/session", input),
-  submit: (input) => request("/responses", input),
+export const createSurveyApi = (id) => {
+  const base = `${controlBase}/public${surveyPublicPath(id)}`;
+  return {
+    metadata: () => request(base, "/metadata"),
+    page: () => request(base, ""),
+    captcha: () => request(base, "/captcha"),
+    session: (input) => request(base, "/session", input),
+    submit: (input) => request(base, "/responses", input),
+  };
 };
+export const surveyApi = createSurveyApi("yunnan-202610");

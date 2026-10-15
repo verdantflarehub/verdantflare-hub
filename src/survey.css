@@ -47,6 +47,12 @@
 .survey-response-list button { text-align: left; width: 100%; justify-content: space-between; display: flex; gap: 16px; }
 .survey-detail-answer { white-space: pre-wrap; overflow-wrap: anywhere; }
 .survey-daily { display: flex; flex-wrap: wrap; gap: 10px 24px; }
+.survey-back { display: block; border: 0; background: none; color: var(--green); padding: 0 0 10px; cursor: pointer; font: inherit; font-size: 13px; }
+.survey-list-grid { display: grid; gap: 14px; margin-top: 28px; }
+.survey-list-item { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 0; }
+.survey-list-item h2 { margin: 4px 0; }
+.survey-list-item .survey-muted { margin: 0 0 8px; }
+.survey-create { margin-top: 24px; max-width: 720px; }
 @media (max-width: 700px) {
   .survey-public { padding: 32px 16px 100px; }
   .survey-brand { padding-right: 72px; }
@@ -56,4 +62,5 @@
   .survey-admin { padding: 20px 16px; }
   .survey-admin-head { flex-direction: column; }
   .survey-response-list button { flex-direction: column; gap: 4px; }
+  .survey-list-item { flex-direction: column; align-items: flex-start; }
 }

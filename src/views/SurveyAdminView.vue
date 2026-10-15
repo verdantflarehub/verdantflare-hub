@@ -81,7 +81,7 @@ onMounted(() => load());
 </script>
 
 <template>
-  <section class="survey-admin survey-ui">
+  <section class="page survey-admin survey-ui">
     <header class="survey-admin-head">
       <div><button class="survey-back" type="button" @click="navigate(surveyListPath)">← 返回交流问卷</button><span class="survey-eyebrow">内部运营 / 问卷</span><h1>{{ stats?.metadata?.name || '问卷详情' }}<template v-if="stats?.metadata?.description"> · {{ stats.metadata.description }}</template></h1><p class="survey-muted">仅 VF 内部客户成功管理员可见。小样本不代表行业比例；提交数不等于独立人数。</p></div>
       <div class="survey-actions"><a class="button secondary" :href="surveyPath" target="_blank" rel="noopener">打开填写页</a><button class="button primary" :disabled="loading || savingSettings" @click="load(0)">刷新</button></div>

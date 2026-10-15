@@ -33,7 +33,7 @@
 .survey-success { padding: 32px; }
 .survey-footer { border-top: 1px solid var(--line); margin-top: 48px; padding-top: 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 12px; }
 .survey-footer a { color: var(--muted-strong); }
-.survey-admin { max-width: 1280px; padding: 32px; }
+.survey-admin { min-width: 0; }
 .survey-admin-head { display: flex; align-items: start; justify-content: space-between; gap: 20px; }
 .survey-metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; margin: 24px 0; }
 .survey-metrics .survey-card { margin: 0; }
@@ -59,7 +59,6 @@
   .survey-intro { padding-top: 32px; }
   .survey-card { padding: 18px; }
   .survey-choices, .survey-matrix, .survey-distributions, .survey-metrics { grid-template-columns: 1fr; }
-  .survey-admin { padding: 20px 16px; }
   .survey-admin-head { flex-direction: column; }
   .survey-response-list button { flex-direction: column; gap: 4px; }
   .survey-list-item { flex-direction: column; align-items: flex-start; }

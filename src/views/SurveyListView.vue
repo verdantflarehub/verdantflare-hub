@@ -37,7 +37,7 @@ onMounted(load);
 </script>
 
 <template>
-  <section class="survey-admin survey-ui survey-list">
+  <section class="page survey-admin survey-ui survey-list">
     <header class="survey-admin-head">
       <div><span class="survey-eyebrow">内部运营 / 问卷</span><h1>交流问卷</h1><p class="survey-muted">查看每份问卷的收集状态与反馈；新问卷使用现有的 16 题需求反馈模板。</p></div>
       <button class="button primary" @click="creating = !creating">{{ creating ? '收起创建' : '创建问卷' }}</button>

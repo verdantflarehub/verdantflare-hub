@@ -41,6 +41,7 @@ const opsItems = computed(() => [
   props.canManageModels && { label: "模型上架", icon: "models", href: "/ops/models" },
   props.canManageApps && { label: "应用发布", icon: "release", href: "/ops/apps" },
   props.canManageOrganizations && { label: "客户组织", icon: "clients", href: "/ops/organizations" },
+  props.canManageOrganizations && props.activeOrganization.organizationId === "org_verdantflare" && { label: "交流问卷", icon: "usage", href: "/ops/surveys/yunnan-202610" },
 ].filter(Boolean));
 const closeMenus = () => { orgOpen.value = false; profileOpen.value = false; };
 const select = (href) => { closeMenus(); navigate(href); };

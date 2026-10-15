@@ -28,6 +28,10 @@ export const getCenterContext = () => request("/context");
 
 export const controlApi = {
   getCenterContext,
+  getSurveyStats: () => request("/ops/surveys/yunnan-202610/stats"),
+  setSurveySettings: (open, expectedVersion) => request("/ops/surveys/yunnan-202610/settings", { method: "PUT", body: JSON.stringify({ open, expectedVersion }) }),
+  listSurveyResponses: (offset = 0, limit = 20) => request(`/ops/surveys/yunnan-202610/responses?offset=${offset}&limit=${limit}`),
+  getSurveyResponse: (id) => request(`/ops/surveys/yunnan-202610/responses/${encodeURIComponent(id)}`),
   setActiveOrganization: (organizationId) => request("/context/active-organization", { method: "PUT", body: JSON.stringify({ organizationId }) }),
   getOverview: () => request("/overview"),
   getGuestCatalog: () => request("/guest/catalog"),

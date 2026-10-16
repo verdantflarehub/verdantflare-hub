@@ -30,6 +30,8 @@
 .survey-actions { display: flex; gap: 12px; justify-content: flex-end; margin: 24px 0; }
 .survey-error { color: var(--coral); white-space: pre-wrap; }
 .survey-receipt { display: block; overflow-wrap: anywhere; font-size: 13px; }
+.survey-draft-consent { margin: 16px 0; align-items: flex-start; }
+.survey-recovery .survey-receipt { margin: 12px 0 18px; }
 .survey-success { padding: 32px; }
 .survey-footer { border-top: 1px solid var(--line); margin-top: 48px; padding-top: 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 12px; }
 .survey-footer a { color: var(--muted-strong); }

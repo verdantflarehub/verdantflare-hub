@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { createSurveyApi, surveyDetailPath } from "../api/survey";
 import { surveyGroups, toggleSurveyChoice, validateSurveyForm, isSurveyClosed } from "../utils/survey";
 import "../survey.css";
@@ -15,6 +15,12 @@ const error = ref("");
 const captcha = ref(null);
 const nickname = ref("");
 const code = ref("");
+const saveDraftConsent = ref(false);
+const recoverMode = ref(false);
+const recoveryInput = ref("");
+const issuedRecoveryCode = ref("");
+const draftStatus = ref("");
+const draftError = ref("");
 const step = ref(0);
 const receipt = ref("");
 const closed = ref(false);
@@ -22,17 +28,42 @@ const unavailable = ref(false);
 const heading = ref(null);
 const form = reactive({ version: 1, answers: {}, analysis: "", quote: "", contactPermission: "", contact: "" });
 const questions = computed(() => page.value?.questions.slice(step.value * 4, step.value * 4 + 4) || []);
+let draftTimer;
+let draftInFlight = false;
+let draftDirty = false;
+let draftRevision = 0;
+let restoring = false;
 watch(() => form.contactPermission, (value) => { if (value !== "yes") form.contact = ""; });
+watch(() => form.analysis, (value) => { if (value === "no") void nextTick(() => saveDraft()); });
+watch(form, scheduleDraft, { deep: true });
+watch(step, scheduleDraft);
 
 function acceptPage(value) {
+  restoring = true;
   closed.value = false;
+  page.value = null;
+  form.answers = {};
   for (const question of value.questions) {
     if (question.id !== "q16" && !form.answers[question.id]) form.answers[question.id] = { choices: [], text: "", rows: {} };
   }
   form.version = value.version;
+  form.analysis = "";
+  form.quote = "";
+  form.contactPermission = "";
+  form.contact = "";
+  step.value = 0;
+  if (value.draft) {
+    for (const [id, answer] of Object.entries(value.draft.answers || {})) if (form.answers[id]) form.answers[id] = answer;
+    for (const key of ["analysis", "quote", "contactPermission", "contact"]) form[key] = value.draft[key] || "";
+    step.value = Math.min(3, Math.max(0, value.draftStep || 0));
+    draftStatus.value = "已恢复上次保存的草稿";
+  }
+  draftRevision = value.draftRevision || 0;
   page.value = value;
   nickname.value = value.nickname;
   receipt.value = value.responseId;
+  issuedRecoveryCode.value = value.recoveryCode || "";
+  void nextTick(() => { restoring = false; });
 }
 function handleFailure(cause) {
   error.value = cause.message;
@@ -73,13 +104,54 @@ async function enter() {
   if (busy.value || !captcha.value) return;
   busy.value = true;
   error.value = "";
-  try { acceptPage(await surveyApi.session({ nickname: nickname.value.trim(), challengeId: captcha.value.challengeId, code: code.value })); }
+  try { acceptPage(await surveyApi.session({ nickname: nickname.value.trim(), challengeId: captcha.value.challengeId, code: code.value, saveDraft: saveDraftConsent.value || recoverMode.value, recoveryCode: recoverMode.value ? recoveryInput.value.trim() : "" })); }
   catch (cause) {
     handleFailure(cause);
+    if (cause.code === "survey_nickname_taken") recoverMode.value = true;
     if (!closed.value) {
       try { await refreshCaptcha(); } catch (failure) { handleFailure(failure); }
     }
   } finally { busy.value = false; }
+}
+function scheduleDraft() {
+  if (restoring || !page.value || receipt.value || closed.value) return;
+  draftDirty = true;
+  draftStatus.value = "尚有未保存的更改";
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => { void saveDraft(); }, 500);
+}
+async function saveDraft() {
+  clearTimeout(draftTimer);
+  if (!draftDirty || !page.value || receipt.value || closed.value) return;
+  if (draftInFlight) return;
+  draftInFlight = true;
+  draftDirty = false;
+  draftError.value = "";
+  draftStatus.value = "正在保存…";
+  const snapshot = JSON.parse(JSON.stringify({ ...form, step: step.value, revision: ++draftRevision }));
+  try {
+    const result = await surveyApi.draft(snapshot);
+    if (!draftDirty) draftStatus.value = result.savedAt ? "草稿已保存" : "已清除临时草稿";
+  } catch (cause) {
+    if (cause.code !== "survey_already_submitted") {
+      draftDirty = true;
+      draftStatus.value = "草稿未保存";
+      draftError.value = cause.message;
+      if (isSurveyClosed(cause)) closed.value = true;
+    }
+  } finally {
+    draftInFlight = false;
+    if (draftDirty && !closed.value && !receipt.value && !draftError.value) scheduleDraft();
+  }
+}
+function flushOnHide() {
+  if (document.visibilityState !== "hidden" || !draftDirty || !page.value || receipt.value || closed.value) return;
+  const snapshot = JSON.parse(JSON.stringify({ ...form, step: step.value, revision: ++draftRevision }));
+  void surveyApi.draft(snapshot, true).catch(() => {});
+}
+async function copyRecoveryCode() {
+  try { await navigator.clipboard.writeText(issuedRecoveryCode.value); }
+  catch { draftError.value = "复制失败，请手动选中续填码保存。"; }
 }
 function move(value) {
   step.value = value;
@@ -100,6 +172,7 @@ async function submit() {
   error.value = validateSurveyForm(form);
   if (error.value) return;
   busy.value = true;
+  clearTimeout(draftTimer);
   try {
     const result = await surveyApi.submit(form);
     receipt.value = result.responseId;
@@ -115,10 +188,12 @@ async function submit() {
   } finally { busy.value = false; }
 }
 onMounted(async () => {
+  document.addEventListener("visibilitychange", flushOnHide);
   try { metadata.value = await surveyApi.metadata(); }
   catch (cause) { error.value = cause.message; unavailable.value = true; loading.value = false; return; }
   await initialize();
 });
+onUnmounted(() => { clearTimeout(draftTimer); document.removeEventListener("visibilitychange", flushOnHide); });
 </script>
 
 <template>
@@ -141,13 +216,19 @@ onMounted(async () => {
     </section>
     <section v-else-if="closed" class="survey-card" role="status">
       <span class="survey-eyebrow">收集已关闭</span><h2>问卷暂未开放或已暂停</h2>
-      <p>请等待组织方开放后再填写。已有答卷不受影响；当前尚未提交的答案仅保留在这个页面，关闭或刷新浏览器后会丢失。</p>
+      <p>请等待组织方开放后再填写。已由服务端确认保存的草稿可在有效期内续填；尚未显示「草稿已保存」的改动可能丢失。已提交答卷不受影响。</p>
       <button class="button secondary" :disabled="busy" @click="initialize">检查开放状态</button>
     </section>
     <form v-else-if="!page" class="survey-card" @submit.prevent="enter">
       <h2>先认识一下您</h2>
-      <p class="survey-muted">不用注册 VF 账号。昵称不必是真名，也不作为身份认证。请勿填写密码、客户秘密或上传客户素材。</p>
+      <p class="survey-muted">不用注册 VF 账号。同一份问卷不能使用已被占用的昵称；昵称不必是真名，也不作为身份认证。请勿填写密码、客户秘密或上传客户素材。</p>
       <label class="survey-field">昵称 <input v-model="nickname" autocomplete="nickname" minlength="2" maxlength="32" required placeholder="2—32 个字符" /></label>
+      <label v-if="!recoverMode" class="survey-choice survey-draft-consent"><input v-model="saveDraftConsent" type="checkbox" required />我同意将未提交的回答临时保存最多 7 天，仅用于本人续填；不会进入统计或用于分析。提交时再分别确认正式使用许可。</label>
+      <button v-if="!recoverMode" type="button" class="button secondary" @click="recoverMode = true; error = ''">已有续填码？恢复填写</button>
+      <template v-else>
+        <label class="survey-field">续填码 <input v-model="recoveryInput" autocomplete="off" minlength="64" maxlength="64" required placeholder="首次填写时保存的续填码" /></label>
+        <button type="button" class="button secondary" @click="recoverMode = false; recoveryInput = ''; error = ''">使用新昵称</button>
+      </template>
       <div class="survey-captcha">
         <img v-if="captcha" :src="captcha.imageDataUrl" alt="六位数字验证码；看不清可换一张" width="240" height="70" />
         <span v-else>验证码尚未加载</span>
@@ -155,14 +236,23 @@ onMounted(async () => {
       </div>
       <label class="survey-field">验证码 <input v-model="code" inputmode="numeric" autocomplete="off" pattern="[0-9]{6}" maxlength="6" required placeholder="图片中的六位数字" /></label>
       <p v-if="error" class="survey-error" role="alert">{{ error }}</p>
-      <button class="button primary" :disabled="busy || !captcha">{{ busy ? '正在验证…' : '开始填写' }}</button>
-      <p class="survey-muted">页面内暂存答案，刷新或关闭页面会丢失尚未提交的内容；两小时内有效。使用许可将在最后一步分别确认。</p>
+      <button class="button primary" :disabled="busy || !captcha">{{ busy ? '正在验证…' : recoverMode ? '恢复草稿' : '开始填写' }}</button>
+      <p class="survey-muted">同一浏览器 7 天内可自动续填；换设备时需要昵称、续填码和新验证码。使用许可将在最后一步分别确认。</p>
     </form>
     <form v-else @submit.prevent="submit">
+      <section v-if="issuedRecoveryCode" class="survey-card survey-recovery" aria-label="续填码">
+        <h2>请先保存续填码</h2>
+        <p class="survey-muted">换设备或清除浏览器数据后，凭昵称、续填码和验证码恢复草稿。此码只显示一次，遗失后无法找回；请勿转发给他人。</p>
+        <code class="survey-receipt">{{ issuedRecoveryCode }}</code>
+        <button class="button secondary" type="button" @click="copyRecoveryCode">复制续填码</button>
+      </section>
       <div class="survey-progress">
         <span>{{ page.nickname }} · 第 {{ step + 1 }} / 4 步</span><span>除角色与使用许可外均可跳过</span>
         <progress :value="step + 1" max="4" :aria-label="`填写进度，第 ${step + 1} 步，共四步`" />
       </div>
+      <p class="survey-muted" role="status">{{ draftStatus }}<template v-if="page.expiresAt"> · 可续填至 {{ new Date(page.expiresAt).toLocaleString('zh-CN') }}</template></p>
+      <p v-if="draftError" class="survey-error" role="alert">{{ draftError }}。请保持页面打开并重试保存。</p>
+      <button v-if="draftError" type="button" class="button secondary" @click="draftError = ''; saveDraft()">重试保存</button>
       <h2 ref="heading" tabindex="-1">{{ surveyGroups[step] }}</h2>
       <p v-if="step === 0" class="survey-muted">投资、园区及暂无制作经验的参与者可重点填 Q1、Q2、Q12、Q13、Q15、Q16。请勿代替尚未访谈的客户填写痛点。</p>
       <fieldset v-for="q in questions" :key="q.id" class="survey-card survey-question">
@@ -194,7 +284,7 @@ onMounted(async () => {
         <button v-if="step < 3" class="button primary" type="button" @click="move(step + 1)">下一步</button>
         <button v-else class="button primary" :disabled="busy || form.analysis === 'no'">{{ busy ? '正在保存…' : '提交问卷' }}</button>
       </div>
-      <p class="survey-muted">回答仅在点击提交后保存。网络失败可重试，同一填写会话不会重复计数。</p>
+      <p class="survey-muted">草稿只供续填，不计入统计；点击「提交问卷」并同意内部分析后才形成正式答卷。网络失败可重试，同一填写会话不会重复计数。</p>
     </form>
     <footer class="survey-footer">VerdantFlare · {{ metadata.name }} <a :href="adminPath">管理员入口</a></footer>
   </main>

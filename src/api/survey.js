@@ -6,10 +6,11 @@ export const surveyDetailPath = (id) => `/ops/surveys/${encodeURIComponent(id)}`
 const controlBase = (import.meta.env.VITE_CONTROL_API_BASE || "/api/control").replace(/\/$/, "");
 
 // Unlike Hub account APIs, an expired guest session must never redirect to VF Login.
-async function request(base, path, body) {
+async function request(base, path, body, options = {}) {
   const response = await fetch(`${base}${path}`, {
     credentials: "include",
     cache: "no-store",
+    ...options,
     ...(body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   });
   const result = await response.json().catch(() => null);
@@ -28,6 +29,7 @@ export const createSurveyApi = (id) => {
     page: () => request(base, ""),
     captcha: () => request(base, "/captcha"),
     session: (input) => request(base, "/session", input),
+    draft: (input, keepalive = false) => request(base, "/draft", input, { keepalive }),
     submit: (input) => request(base, "/responses", input),
   };
 };

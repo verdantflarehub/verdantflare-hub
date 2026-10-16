@@ -202,7 +202,8 @@ onUnmounted(() => { clearTimeout(draftTimer); document.removeEventListener("visi
     <section class="survey-intro">
       <span class="survey-eyebrow">从真实项目出发</span>
       <h1>了解您的制作流程，<br />让交流更有针对性。</h1>
-      <p>内容生产需求问卷 · 约 8—10 分钟。以最近三个月的项目为例，不确定或商业敏感的问题可以跳过。</p>
+      <p>内容生产需求问卷 · 建议预留 10—15 分钟，可分次填写。以最近三个月的项目为例，不确定或商业敏感的问题可以跳过。</p>
+      <p class="survey-muted">正式提交的答卷自提交起保存 180 天；未提交草稿最多保留 7 天。需要查询或删除本人答卷，请联系 <a href="mailto:hello@verdantflarehub.com">hello@verdantflarehub.com</a>，请勿在邮件中发送密码、续填码或客户素材。</p>
     </section>
     <p v-if="loading" role="status" class="survey-card">正在加载问卷…</p>
     <section v-else-if="unavailable" class="survey-card" role="alert">

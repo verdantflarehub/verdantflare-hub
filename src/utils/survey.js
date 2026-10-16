@@ -2,6 +2,19 @@ export const surveyGroups = ["团队与工作方式", "最近一次返修", "数
 
 export const isSurveyClosed = (error) => error?.status === 423 && error?.code === "survey_closed";
 
+// The API omits empty answer fields when serializing saved drafts.
+// Restore the complete editable shape without changing the saved payload.
+export function restoreSurveyAnswers(questions, savedAnswers = {}) {
+  return Object.fromEntries(questions.filter((question) => question.id !== "q16").map(({ id }) => {
+    const answer = savedAnswers?.[id];
+    return [id, {
+      choices: Array.isArray(answer?.choices) ? [...answer.choices] : [],
+      text: typeof answer?.text === "string" ? answer.text : "",
+      rows: answer?.rows && typeof answer.rows === "object" && !Array.isArray(answer.rows) ? { ...answer.rows } : {},
+    }];
+  }));
+}
+
 export function toggleSurveyChoice(question, current, value) {
   if (current.includes(value)) return current.filter((item) => item !== value);
   if (question.max === 1) return [value];

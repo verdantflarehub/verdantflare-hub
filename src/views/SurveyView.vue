@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { createSurveyApi, surveyDetailPath } from "../api/survey";
-import { surveyGroups, toggleSurveyChoice, validateSurveyForm, isSurveyClosed } from "../utils/survey";
+import { surveyGroups, toggleSurveyChoice, validateSurveyForm, isSurveyClosed, restoreSurveyAnswers } from "../utils/survey";
 import "../survey.css";
 
 const props = defineProps({ surveyId: { type: String, required: true } });
@@ -42,10 +42,7 @@ function acceptPage(value) {
   restoring = true;
   closed.value = false;
   page.value = null;
-  form.answers = {};
-  for (const question of value.questions) {
-    if (question.id !== "q16" && !form.answers[question.id]) form.answers[question.id] = { choices: [], text: "", rows: {} };
-  }
+  form.answers = restoreSurveyAnswers(value.questions, value.draft?.answers);
   form.version = value.version;
   form.analysis = "";
   form.quote = "";
@@ -53,7 +50,6 @@ function acceptPage(value) {
   form.contact = "";
   step.value = 0;
   if (value.draft) {
-    for (const [id, answer] of Object.entries(value.draft.answers || {})) if (form.answers[id]) form.answers[id] = answer;
     for (const key of ["analysis", "quote", "contactPermission", "contact"]) form[key] = value.draft[key] || "";
     step.value = Math.min(3, Math.max(0, value.draftStep || 0));
     draftStatus.value = "已恢复上次保存的草稿";

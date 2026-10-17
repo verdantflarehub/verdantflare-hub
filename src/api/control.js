@@ -1,3 +1,5 @@
+import { loginUrl } from "../config/site";
+
 const controlBase = (import.meta.env.VITE_CONTROL_API_BASE || "/api/control").replace(/\/$/, "");
 
 const request = async (path, options = {}) => {
@@ -10,7 +12,7 @@ const request = async (path, options = {}) => {
 
   if (response.status === 401) {
     const returnTo = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
-    window.location.assign(`${import.meta.env.VITE_LOGIN_URL || "https://login.verdantflarehub.com/sign-in"}?return_to=${returnTo}`);
+    window.location.assign(`${loginUrl}?return_to=${returnTo}`);
     return null;
   }
 

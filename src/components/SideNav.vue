@@ -2,9 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import AppIcon from "./AppIcon.vue";
 import { isPathActive, navigate } from "../router";
+import { loginUrl, wwwUrl } from "../config/site";
 
-const wwwUrl = import.meta.env.VITE_WWW_URL || "https://www.verdantflarehub.com";
-const loginUrl = import.meta.env.VITE_LOGIN_URL || "https://login.verdantflarehub.com/sign-in";
 const logoutUrl = new URL("/logout", loginUrl).toString();
 const props = defineProps({
   context: { type: Object, required: true },

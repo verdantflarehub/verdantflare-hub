@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from "vue";
 import AppIcon from "./AppIcon.vue";
+import { loginUrl } from "../config/site";
 
 const props = defineProps({
   context: { type: Object, required: true },
@@ -12,7 +13,6 @@ const orgOpen = ref(false);
 const profileOpen = ref(false);
 
 const initials = computed(() => props.context.displayName?.slice(0, 1) || "V");
-const loginUrl = import.meta.env.VITE_LOGIN_URL || "https://login.verdantflarehub.com/sign-in";
 const logoutUrl = new URL("/logout", loginUrl).toString();
 const logout = () => window.location.assign(logoutUrl);
 

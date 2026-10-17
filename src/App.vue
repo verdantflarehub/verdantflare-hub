@@ -21,8 +21,8 @@ import SurveyAdminView from "./views/SurveyAdminView.vue";
 import SurveyListView from "./views/SurveyListView.vue";
 import { surveyListPath } from "./api/survey";
 import { theme, toggleTheme } from "./theme";
+import { loginUrl } from "./config/site";
 
-const loginUrl = import.meta.env.VITE_LOGIN_URL || "https://login.verdantflarehub.com/sign-in";
 const logoutUrl = new URL("/logout", loginUrl).toString();
 
 const context = ref(null);

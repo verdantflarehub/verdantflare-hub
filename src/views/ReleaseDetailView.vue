@@ -4,6 +4,12 @@ import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { navigate, replace } from "../router";
+import {
+  buildOciVersionPayload,
+  defaultChartOciRef,
+  formatChartCompatibility,
+  hasVerifiedOciChartVersion,
+} from "../utils/marketReleaseV2";
 
 const props = defineProps({ path: String });
 const emit = defineEmits(["toast"]);
@@ -21,12 +27,25 @@ const versionsLoading = ref(false);
 const versionsError = ref("");
 const versionSaving = ref(false);
 const versionError = ref("");
+const ociSaving = ref(false);
+const ociError = ref("");
+const releaseSelecting = ref(false);
 const chartFile = ref(null);
 const chartAudit = ref(null);
 const chartAuditError = ref("");
 const chartAuditing = ref(false);
 const auditedFileName = ref("");
 let chartRequest = 0;
+
+const ociForm = ref({
+  version: "",
+  ociRef: "",
+  chartVersion: "",
+  manifestDigest: "",
+  packageDigest: "",
+  releaseNotes: "",
+  sourceRevision: "",
+});
 const versionForm = ref({ version: "", upstreamVersion: "", publisher: "", sourceUrl: "", sourceRevision: "", licenseId: "", licenseUrl: "", manifest: "", dependencies: "[]", permissions: "[]" });
 const grants = ref([]);
 const grantsLoading = ref(false);
@@ -38,6 +57,11 @@ const nextWeekLocal = () => {
 };
 const grantForm = ref({ version: "", stationId: "", certificateSha256: "", expiresAt: nextWeekLocal() });
 const grantActive = (grant) => !grant.revoked && new Date(grant.expiresAt).getTime() > Date.now();
+
+const ociVersions = computed(() => versions.value.filter((item) => Boolean(item?.chart)));
+const legacyVersions = computed(() => versions.value.filter((item) => !item?.chart));
+const hasVerifiedOciVersion = computed(() => hasVerifiedOciChartVersion(versions.value));
+
 const loadGrants = async () => {
   grantsLoading.value = true;
   grantsError.value = "";
@@ -54,10 +78,11 @@ const loadVersions = async () => {
   versionsLoading.value = true;
   versionsError.value = "";
   try {
-    versions.value = await controlApi.listAppVersions(appId.value);
+    const res = await controlApi.listAppVersionsV2(appId.value);
+    versions.value = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
   } catch (cause) {
     versions.value = [];
-    versionsError.value = cause instanceof Error ? cause.message : "候选版本加载失败";
+    versionsError.value = cause instanceof Error ? cause.message : "版本记录加载失败";
   } finally {
     versionsLoading.value = false;
   }
@@ -73,6 +98,7 @@ const load = async () => {
   chartAudit.value = null;
   chartAuditError.value = "";
   auditedFileName.value = "";
+  ociError.value = "";
   chartRequest += 1;
   chartAuditing.value = false;
   try {
@@ -91,6 +117,15 @@ const load = async () => {
     screenshotsText.value = (form.value.showcase?.screenshots || []).join("\n");
     highlightsText.value = (form.value.showcase?.highlights || []).join("\n");
     permissionsText.value = (form.value.showcase?.permissions || []).join("\n");
+    ociForm.value = {
+      version: "",
+      ociRef: defaultChartOciRef(record.value.app.id),
+      chartVersion: "",
+      manifestDigest: "",
+      packageDigest: "",
+      releaseNotes: "",
+      sourceRevision: "",
+    };
     versionForm.value = { version: record.value.app.version || "", upstreamVersion: "", publisher: "", sourceUrl: "", sourceRevision: "", licenseId: "", licenseUrl: "", manifest: "", dependencies: "[]", permissions: "[]" };
     await loadVersions();
     await loadGrants();
@@ -136,11 +171,6 @@ const listingInvalid = computed(() => {
   ].filter(Boolean);
 });
 const canList = computed(() => !listingMissing.value.length && !listingInvalid.value.length && !form.value?.version);
-const releaseBlockers = computed(() => chartFlow.value ? [
-  "Chart 归档尚未保存为不可变制品，也没有与 AppVersion 绑定",
-  "镜像摘要、许可证及依赖尚无可信制品审核证据",
-  "隔离 Helm 渲染与目标 Station 安装、健康和功能验收尚未接入",
-] : []);
 
 const readManifestFile = async (event) => {
   const file = event.target.files?.[0];
@@ -182,10 +212,61 @@ const auditChart = async () => {
     if (request !== chartRequest || chartFile.value !== file || appId.value !== id) return;
     chartAudit.value = result;
     auditedFileName.value = file.name;
+    if (result.chartVersion && !ociForm.value.version) {
+      ociForm.value.version = result.chartVersion;
+      ociForm.value.chartVersion = result.chartVersion;
+    }
+    if (result.archiveSha256 && !ociForm.value.packageDigest) {
+      ociForm.value.packageDigest = `sha256:${result.archiveSha256}`;
+    }
   } catch (cause) {
     if (request === chartRequest) chartAuditError.value = cause instanceof Error ? cause.message : "Chart 检查失败";
   } finally {
     if (request === chartRequest) chartAuditing.value = false;
+  }
+};
+
+const registerOciVersion = async () => {
+  if (ociSaving.value) return;
+  ociError.value = "";
+  let payload;
+  try {
+    payload = buildOciVersionPayload(appId.value, ociForm.value);
+  } catch (cause) {
+    ociError.value = cause instanceof Error ? cause.message : "OCI 版本参数格式不正确";
+    return;
+  }
+  ociSaving.value = true;
+  try {
+    const created = await controlApi.createOCIAppVersion(appId.value, payload);
+    await loadVersions();
+    ociForm.value.version = "";
+    ociForm.value.chartVersion = "";
+    ociForm.value.manifestDigest = "";
+    ociForm.value.packageDigest = "";
+    ociForm.value.releaseNotes = "";
+    ociForm.value.sourceRevision = "";
+    emit("toast", `Chart OCI 版本 ${created.version} 已完成验签与元数据提取`);
+  } catch (cause) {
+    ociError.value = cause instanceof Error ? cause.message : "Chart OCI 版本登记失败";
+  } finally {
+    ociSaving.value = false;
+  }
+};
+
+const selectReleaseVersion = async (targetVersion) => {
+  if (releaseSelecting.value || !record.value) return;
+  releaseSelecting.value = true;
+  ociError.value = "";
+  try {
+    await controlApi.selectAppRelease(appId.value, targetVersion, record.value.app.revision);
+    record.value = await controlApi.getManagedApp(appId.value);
+    form.value = { ...record.value.app, showcase: { screenshots: [], highlights: [], permissions: [], ...record.value.app.showcase } };
+    emit("toast", targetVersion ? `已将 ${targetVersion} 设为当前发布版本并写入 apps.yaml` : "已取消可安装版本发布，应用降为仅目录展示");
+  } catch (cause) {
+    ociError.value = cause instanceof Error ? cause.message : "切换发布版本失败";
+  } finally {
+    releaseSelecting.value = false;
   }
 };
 
@@ -220,7 +301,7 @@ const createVersion = async () => {
     grantForm.value.version = result.version;
     versionForm.value.version = "";
     versionForm.value.manifest = "";
-    emit("toast", `候选版本 ${result.version} 已登记；请保存选中的目录版本。制品审计和 Station 验证尚未完成`);
+    emit("toast", `候选版本 ${result.version} 已登记`);
   } catch (cause) {
     versionError.value = cause instanceof Error ? cause.message : "候选版本登记失败";
   } finally {
@@ -268,8 +349,8 @@ const save = async (channel = form.value.channel) => {
     error.value = `Hub 目录上架还缺：${[...listingMissing.value, ...listingInvalid.value, form.value.version && "清空目录展示版本"].filter(Boolean).join("、")}`;
     return;
   }
-  if (chartFlow.value && ["Preview", "Stable"].includes(channel) && !["Preview", "Stable"].includes(record.value.app.channel)) {
-    error.value = "当前只有 Chart 静态预检，缺少可信制品、渲染与 Station 验证证据，不能发布 Preview 或 Stable。";
+  if (chartFlow.value && ["Preview", "Stable"].includes(channel) && !hasVerifiedOciVersion.value && !["Preview", "Stable"].includes(record.value.app.channel)) {
+    error.value = "请先在「Chart OCI 版本登记与发布」中登记至少一个已验证的 Chart OCI 版本，再发布 Preview 或 Stable。";
     return;
   }
   saving.value = true;
@@ -304,7 +385,7 @@ const save = async (channel = form.value.channel) => {
       },
     });
     form.value = { ...record.value.app, showcase: { screenshots: [], highlights: [], permissions: [], ...record.value.app.showcase } };
-    emit("toast", channel === "Listed" ? "应用已上架 Hub 目录；交付包与体验尚未就绪" : channel === "Preview" ? "应用已加入 Preview 目录；运行状态待 Station 核验" : "应用目录资料已保存");
+    emit("toast", channel === "Listed" ? "应用已上架 Hub 目录" : channel === "Stable" ? "应用发布状态已更新" : "应用目录资料已保存");
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : "保存失败";
   } finally {
@@ -321,20 +402,20 @@ const save = async (channel = form.value.channel) => {
     <template v-if="record && form">
       <section class="detail-command-bar internal-detail">
         <div class="app-large-icon" :class="record.app.tone"><AppIcon :name="record.app.icon || 'market'" :size="31" /></div>
-        <div class="detail-title-copy"><span class="page-overline internal-overline">APP RELEASE</span><h1>{{ record.app.name }} · {{ record.app.version || '版本待登记' }}</h1><p>应用 ID：<code>{{ record.app.id }}</code> · 已授权 {{ record.release.audience }}</p></div>
-        <div class="detail-command-actions"><StatusBadge :label="record.app.channel === 'Preview' ? '目录预览' : record.release.status" /><button v-if="record.app.channel === 'Listed' || record.app.publicVisible" class="button secondary" @click="navigate(`/market/apps/${encodeURIComponent(appId)}`)">查看已上架详情</button><button class="button secondary" :disabled="saving" @click="save()">保存资料</button><button v-if="record.app.channel === 'Candidate'" class="button primary" :disabled="saving || !canList" @click="save('Listed')">仅上架 Hub 资料</button></div>
+        <div class="detail-title-copy"><span class="page-overline internal-overline">APP RELEASE</span><h1>{{ record.app.name }} · {{ record.app.publishedVersion || record.app.version || '版本待登记' }}</h1><p>应用 ID：<code>{{ record.app.id }}</code> · 修订 <code>rev {{ record.app.revision || 1 }}</code> · 已授权 {{ record.release.audience }}</p></div>
+        <div class="detail-command-actions"><StatusBadge :label="record.app.channel === 'Preview' ? '目录预览' : record.release.status" /><a class="button secondary" :href="controlApi.opsAppsYamlUrl()" target="_blank" rel="noopener noreferrer">查看 apps.yaml</a><button v-if="record.app.channel === 'Listed' || record.app.publicVisible" class="button secondary" @click="navigate(`/market/apps/${encodeURIComponent(appId)}`)">查看已上架详情</button><button class="button secondary" :disabled="saving" @click="save()">保存资料</button><button v-if="record.app.channel === 'Candidate'" class="button primary" :disabled="saving || !canList" @click="save('Listed')">仅上架 Hub 资料</button></div>
       </section>
 
-      <nav class="release-section-nav" aria-label="应用发布页内导航"><a href="#release-basics">应用资料</a><a href="#release-chart">Chart 预检</a><a href="#release-channel">发布状态</a></nav>
+      <nav class="release-section-nav" aria-label="应用发布页内导航"><a href="#release-basics">应用资料</a><a href="#release-chart">Chart 预检</a><a href="#release-oci-versions">OCI 版本与发布</a><a href="#release-channel">发布通道</a></nav>
 
       <section class="content-panel release-readiness-panel">
-        <div class="section-heading"><div><h2>发布检查</h2><p>目录展示、交付包和真实运行分别检查；填写展示字段不会证明应用可运行。</p></div></div>
-        <div class="readiness-grid"><div><strong>01 · 资料上架</strong><p>{{ listingMissing.length || listingInvalid.length ? `还需处理：${[...listingMissing, ...listingInvalid].join('、')}` : '展示必填项已齐；可仅上架资料。' }}</p></div><div><strong>02 · Chart 预检</strong><p>{{ chartAudit ? (chartAudit.staticChecksPassed ? '本次上传的静态规则通过；报告仅在本页临时显示。' : '本次上传存在阻断项；请查看报告。') : '请上传 Helm Chart 归档并查看逐项报告。' }}</p></div><div><strong>03 · 版本发布</strong><p>可信制品、隔离渲染和 Station 验证尚未接入；不可发布 Preview / Stable，也不能声称可运行。</p></div></div>
+        <div class="section-heading"><div><h2>发布检查</h2><p>目录展示、Chart 预检与 OCI 版本发布分别校验；选中发布版本后自动同步至 Station 可拉取的 apps.yaml。</p></div></div>
+        <div class="readiness-grid"><div><strong>01 · 资料上架</strong><p>{{ listingMissing.length || listingInvalid.length ? `还需处理：${[...listingMissing, ...listingInvalid].join('、')}` : '展示必填项已齐；可上架资料。' }}</p></div><div><strong>02 · Chart 预检</strong><p>{{ chartAudit ? (chartAudit.staticChecksPassed ? '本次上传的静态规则通过；可将摘要填入下方 OCI 登记。' : '本次上传存在阻断项；请查看报告。') : '可选上传本地 .tgz 归档快速预检结构与摘要。' }}</p></div><div><strong>03 · OCI 版本发布</strong><p>{{ record.app.publishedVersion ? `当前已发布 Chart OCI 版本 ${record.app.publishedVersion}（可安装分发已启用）。` : (ociVersions.length ? `已登记 ${ociVersions.length} 个可信 OCI 版本，可随时选定发布。` : '尚未登记 OCI Chart 版本；当前仅可作为目录展示。') }}</p></div></div>
       </section>
 
       <section id="release-basics" class="content-panel manifest-panel release-section" tabindex="-1" aria-label="应用目录资料">
           <div class="section-heading"><div><h2>第一步 · 应用目录资料</h2><p>星号字段为资料上架必填；资源、镜像和部署条件以受控 Chart 为准。</p></div></div>
-          <div class="two-column-form"><label class="form-field"><span>应用名称 *</span><input v-model.trim="form.name" /></label><label class="form-field"><span>应用主分组</span><input :value="form.groupId || '旧版目录未登记'" disabled /></label><label class="form-field"><span>目录展示版本</span><input v-if="chartFlow" :value="record.app.version || '待可信 Chart 版本登记'" disabled /><input v-else v-model.trim="form.version" /></label><label class="form-field"><span>市场分类 *</span><input v-model.trim="form.category" /></label><label v-if="!chartFlow" class="form-field"><span>旧版推荐资源</span><input v-model.trim="form.gpu" /></label><label v-if="!chartFlow" class="form-field"><span>旧版体验时长说明</span><input v-model.trim="form.duration" /></label></div>
+          <div class="two-column-form"><label class="form-field"><span>应用名称 *</span><input v-model.trim="form.name" /></label><label class="form-field"><span>应用主分组</span><input :value="form.groupId || '旧版目录未登记'" disabled /></label><label class="form-field"><span>当前发布版本（publishedVersion）</span><input v-if="chartFlow" :value="record.app.publishedVersion || record.app.version || '未选择可安装版本'" disabled /><input v-else v-model.trim="form.version" /></label><label class="form-field"><span>市场分类 *</span><input v-model.trim="form.category" /></label><label v-if="!chartFlow" class="form-field"><span>旧版推荐资源</span><input v-model.trim="form.gpu" /></label><label v-if="!chartFlow" class="form-field"><span>旧版体验时长说明</span><input v-model.trim="form.duration" /></label></div>
           <div class="two-column-form"><label class="form-field"><span>目录排序（0–1000000）</span><input v-model.number="form.sortOrder" type="number" min="0" max="1000000" /></label><label class="form-field"><span>品牌标识</span><input v-model.trim="form.brand" /></label><label class="form-field"><span>图标引用</span><input v-model.trim="form.iconRef" placeholder="例如 brand:blender" /></label></div>
           <label class="form-field"><span>一句话简介 *</span><textarea v-model.trim="form.summary" rows="3" /></label>
           <div class="section-heading"><div><h2>客户详情展示</h2><p>按截图组织展示内容；每行一条截图、功能或权限。图片与外部链接使用 HTTPS。</p></div></div>
@@ -353,27 +434,98 @@ const save = async (channel = form.value.channel) => {
         </section>
 
       <section id="release-chart" class="content-panel chart-audit-panel release-section" tabindex="-1" aria-label="Chart 预检">
-        <div class="section-heading"><div><h2>第二步 · 上传 Helm Chart</h2><p>支持 Helm 打包的 .tgz 文件，最多 2 MiB。Control 仅读取并检查本次上传，不保存为可安装版本。</p></div><span class="candidate-internal-tag">仅内部预检</span></div>
-        <p class="candidate-help">归档必备：Chart.yaml（v2/application、名称与应用 ID 一致、固定版本和 appVersion）、values.yaml、Deployment、ClusterIP Service、工作卷、固定镜像标签及 SHA-256；GPU 应用还需声明 GPU 请求与上限。禁止 Secret、公网入口和子 Chart 依赖；目标 Station 仍需单独验收。</p>
+        <div class="section-heading"><div><h2>第二步 · 上传 Helm Chart 本地预检</h2><p>支持 Helm 打包的 .tgz 文件，最多 2 MiB。Control 仅读取并检查本次上传，辅助核对归档 SHA-256。</p></div><span class="candidate-internal-tag">本地预检</span></div>
+        <p class="candidate-help">归档必备：Chart.yaml（v2/application、名称与应用 ID 一致、固定版本和 appVersion）、values.yaml、Deployment、ClusterIP Service、工作卷、固定镜像标签及 SHA-256；GPU 应用还需声明 GPU 请求与上限。禁止 Secret、公网入口和子 Chart 依赖。</p>
         <div class="chart-audit-actions"><input type="file" accept=".tgz,application/gzip" aria-label="选择 Helm Chart 归档" :disabled="chartAuditing" @change="selectChartFile" /><button class="button secondary" :disabled="!chartFile || chartAuditing" @click="auditChart">{{ chartAuditing ? '正在检查…' : '上传并检查' }}</button></div>
         <p v-if="chartAuditing" role="status" class="candidate-help">正在检查 {{ chartFile.name }}，请等待本次报告。</p>
         <p v-if="chartAuditError" class="form-error" role="alert">{{ chartAuditError }}</p>
         <div v-if="chartAudit" class="chart-audit-report">
           <p>检查文件：<strong>{{ auditedFileName }}</strong></p>
-          <p><strong>{{ chartAudit.staticChecksPassed ? '静态检查通过，尚不可部署' : '存在部署阻断项' }}</strong> · {{ chartAudit.chartName || '名称未识别' }} · Chart {{ chartAudit.chartVersion || '版本未识别' }} · App {{ chartAudit.appVersion || '版本未识别' }}</p>
-          <p>本次归档 SHA-256：<code>{{ chartAudit.archiveSha256 }}</code></p>
+          <p><strong>{{ chartAudit.staticChecksPassed ? '静态检查通过' : '存在部署阻断项' }}</strong> · {{ chartAudit.chartName || '名称未识别' }} · Chart {{ chartAudit.chartVersion || '版本未识别' }} · App {{ chartAudit.appVersion || '版本未识别' }}</p>
+          <p>本次归档 SHA-256：<code>sha256:{{ chartAudit.archiveSha256 }}</code></p>
           <ul><li v-for="check in chartAudit.checks" :key="check.code"><strong :class="`chart-audit-${check.status}`">{{ check.status === 'passed' ? '通过' : check.status === 'blocked' ? '阻断' : '待验证' }}</strong> · {{ check.detail }}</li></ul>
-          <p class="candidate-help">此报告不会保存 Chart，也不会自动登记候选版本、发布或安装。请保留归档和摘要供后续可信制品流程核对。</p>
         </div>
+      </section>
+
+      <section id="release-oci-versions" class="content-panel candidate-version-panel release-section" tabindex="-1" aria-label="Chart OCI 版本登记与发布">
+        <div class="section-heading">
+          <div>
+            <h2>第三步 · Chart OCI 版本登记与发布</h2>
+            <p>向 Control 登记已推送到受控 OCI Registry 的 Helm Chart 版本，自动验签并提取镜像、模型、能力、Logo 与兼容性，支持一键切换或撤回发布指针。</p>
+          </div>
+          <span class="candidate-internal-tag">{{ record.app.publishedVersion ? `已发布 ${record.app.publishedVersion}` : '未发布可安装版本' }}</span>
+        </div>
+
+        <div v-if="record.app.publishedVersion" class="detail-command-actions">
+          <span>当前线上发布版本：<strong>{{ record.app.publishedVersion }}</strong>（已启用 Station <code>apps.yaml</code> 分发）</span>
+          <button class="button secondary" :disabled="releaseSelecting" @click="selectReleaseVersion(null)">{{ releaseSelecting ? '正在处理…' : '取消发布（降为仅目录）' }}</button>
+        </div>
+        <div v-else-if="record.app.disabledReason" class="candidate-help">
+          当前不可安装原因：<code>{{ record.app.disabledReason }}</code>
+        </div>
+
+        <p v-if="versionsLoading" class="candidate-help">正在加载 Chart OCI 版本记录…</p>
+        <div v-if="versionsError" class="ops-note"><AppIcon name="warning" :size="18" /><div><strong>版本记录暂不可用</strong><p>{{ versionsError }}</p></div><button class="button secondary" @click="loadVersions">重试</button></div>
+        <div v-if="!versionsLoading && !versionsError && !ociVersions.length" class="candidate-empty">尚未登记任何 Chart OCI 版本。请先推送 Chart 至 <code>{{ defaultChartOciRef(record.app.id) }}</code>，再在下方提交摘要登记。</div>
+
+        <div v-for="item in ociVersions" :key="item.version" class="candidate-version-card">
+          <div class="candidate-version-header">
+            <div>
+              <strong>{{ item.version }}</strong>
+              <span>· Chart {{ item.chart?.name }}@{{ item.chart?.version }}</span>
+              <span v-if="item.chart?.appVersion"> · App {{ item.chart.appVersion }}</span>
+            </div>
+            <div class="detail-command-actions">
+              <StatusBadge v-if="record.app.publishedVersion === item.version" label="当前发布" />
+              <button
+                v-else
+                class="button primary"
+                :disabled="releaseSelecting"
+                @click="selectReleaseVersion(item.version)"
+              >
+                {{ releaseSelecting ? '切换中…' : '设为当前发布版本' }}
+              </button>
+            </div>
+          </div>
+          <p>OCI 引用：<code>{{ item.chart?.ociRef }}</code> · 包大小 {{ item.chart?.packageSizeBytes || 0 }} bytes · 验签时间 {{ item.verifiedAt || '—' }}</p>
+          <p>Manifest 摘要：<code>{{ item.chart?.manifestDigest }}</code></p>
+          <p>Package 摘要：<code>{{ item.chart?.packageDigest }}</code></p>
+          <p v-if="item.releaseNotes">版本说明：{{ item.releaseNotes }}</p>
+          <details class="candidate-version-details">
+            <summary>查看 Chart 提取元数据（镜像 {{ item.images?.length || 0 }} · 模型 {{ item.models?.length || 0 }} · 能力 {{ item.capabilities?.length || 0 }}）</summary>
+            <dl>
+              <div><dt>容器镜像</dt><dd><code v-for="img in item.images" :key="`${img.component}-${img.image}`">{{ img.component }}: {{ img.image }}<br /></code><span v-if="!item.images?.length">未声明</span></dd></div>
+              <div><dt>AI 模型</dt><dd>{{ item.models?.join('、') || '无' }}</dd></div>
+              <div><dt>应用能力</dt><dd>{{ item.capabilities?.join('、') || '无' }}</dd></div>
+              <div><dt>应用依赖</dt><dd>{{ item.dependencies?.map((dep) => `${dep.appId || dep.id}@${dep.versionRange || dep.version}`).join('、') || '无' }}</dd></div>
+              <div><dt>运行兼容性</dt><dd>{{ formatChartCompatibility(item.compatibility) }}</dd></div>
+              <div><dt>包内 Logo</dt><dd><span v-if="item.logo"><code>{{ item.logo.mediaType }}</code> · <code>{{ item.logo.digest }}</code></span><span v-else>沿用应用图标引用</span></dd></div>
+              <div v-if="item.sourceRevision"><dt>源码 Revision</dt><dd><code>{{ item.sourceRevision }}</code></dd></div>
+            </dl>
+          </details>
+        </div>
+
+        <form class="candidate-version-form" @submit.prevent="registerOciVersion">
+          <div class="section-heading"><div><h3>登记新 Chart OCI 版本</h3><p>Control 将向 OCI Registry 拉取 Manifest 与 .tgz 层校验 SHA-256，并自动解析 Chart.yaml、values.yaml 与包内图标。</p></div></div>
+          <div class="two-column-form">
+            <label class="form-field"><span>发行版本号（SemVer）*</span><input v-model.trim="ociForm.version" required placeholder="例如 0.1.3" /></label>
+            <label class="form-field"><span>Chart 版本号（默认同上）</span><input v-model.trim="ociForm.chartVersion" :placeholder="ociForm.version || '例如 0.1.3'" /></label>
+            <label class="form-field"><span>Chart OCI 仓库地址 *</span><input v-model.trim="ociForm.ociRef" required :placeholder="defaultChartOciRef(record.app.id)" /></label>
+            <label class="form-field"><span>源码 Git Revision（40 位可选）</span><input v-model.trim="ociForm.sourceRevision" placeholder="可选 40 位 commit SHA" /></label>
+            <label class="form-field"><span>OCI Manifest Digest（sha256:...）*</span><input v-model.trim="ociForm.manifestDigest" required placeholder="sha256:..." /></label>
+            <label class="form-field"><span>Chart Package Digest（sha256:...，可选）</span><input v-model.trim="ociForm.packageDigest" placeholder="sha256:..." /></label>
+          </div>
+          <label class="form-field"><span>版本变更说明（Release Notes）</span><textarea v-model.trim="ociForm.releaseNotes" rows="3" placeholder="记录本次 Chart 版本的特性、模型或修复说明" /></label>
+          <p v-if="ociError" class="form-error" role="alert">{{ ociError }}</p>
+          <button class="button primary" type="submit" :disabled="ociSaving || versionsLoading">{{ ociSaving ? '正在验签并登记…' : '验签并登记 OCI 版本' }}</button>
+        </form>
       </section>
 
       <aside id="release-channel" class="content-panel release-controls release-section" tabindex="-1" aria-label="发布状态">
           <p v-if="error" class="form-error" role="alert">{{ error }} · 已填写内容仍保留。</p>
-          <div class="section-heading"><div><h2>第三步 · 发布通道</h2><p>Listed 仅在 Hub 展示资料，不授予权益或安装能力。</p></div></div>
-          <label class="form-field"><span>通道</span><select v-model="form.channel"><option>Candidate</option><option :disabled="Boolean(form.version)">Listed</option><option v-if="!chartFlow || ['Preview', 'Stable'].includes(record.app.channel)">Preview</option><option v-if="!chartFlow || record.app.channel === 'Stable'">Stable</option><option>Paused</option></select></label>
-          <label v-if="!chartFlow || ['Preview', 'Stable'].includes(record.app.channel)" class="form-field"><span>WWW 公开</span><select v-model="form.publicVisible" :disabled="!['Preview', 'Stable'].includes(form.channel)"><option :value="false">不公开</option><option :value="true">公开目录资料</option></select></label>
-          <ul v-if="chartFlow" class="release-blocker-list"><li v-for="item in releaseBlockers" :key="item">{{ item }}</li></ul>
-          <div class="release-warning"><AppIcon name="warning" :size="18" /><span>当前 Chart 流程最多完成资料上架与静态预检。待可信包、目标环境和真实运行证据接通后，才能开放版本发布。</span></div>
+          <div class="section-heading"><div><h2>第四步 · 发布通道与可见性</h2><p>Listed 仅在 Hub 展示资料；绑定已验证的 Chart OCI 版本后可发布 Stable / Preview。</p></div></div>
+          <label class="form-field"><span>通道</span><select v-model="form.channel"><option>Candidate</option><option :disabled="Boolean(form.version) && !hasVerifiedOciVersion">Listed</option><option v-if="!chartFlow || hasVerifiedOciVersion || ['Preview', 'Stable'].includes(record.app.channel)">Preview</option><option v-if="!chartFlow || hasVerifiedOciVersion || record.app.channel === 'Stable'">Stable</option><option>Paused</option></select></label>
+          <label class="form-field"><span>WWW 公开</span><select v-model="form.publicVisible" :disabled="!['Preview', 'Stable'].includes(form.channel)"><option :value="false">不公开</option><option :value="true">公开目录资料</option></select></label>
         </aside>
 
       <section class="content-panel release-showcase-preview">
@@ -384,32 +536,14 @@ const save = async (channel = form.value.channel) => {
         <ul v-if="lines(highlightsText).length"><li v-for="item in lines(highlightsText)" :key="item">{{ item }}</li></ul>
       </section>
 
-      <details v-if="!chartFlow || versions.length" class="legacy-release-tools">
-        <summary>旧版 Manifest 候选与内部设备授权{{ versions.length ? ` · ${versions.length} 个历史版本` : '' }}</summary>
+      <details v-if="!chartFlow || legacyVersions.length" class="legacy-release-tools">
+        <summary>旧版 Manifest 候选与内部设备授权{{ legacyVersions.length ? ` · ${legacyVersions.length} 个历史版本` : '' }}</summary>
       <section class="content-panel candidate-version-panel">
-        <div class="section-heading"><div><h2>旧版 Manifest 候选记录</h2><p>现行 v1 候选版本接口仍使用 Manifest；Chart 与它的映射待包契约定版，二者尚未关联。</p></div><span class="candidate-internal-tag">仅内部可见</span></div>
-        <div class="release-warning"><AppIcon name="warning" :size="18" /><span>当前只记录发布者声明及 Manifest。制品下载、签名、Station 同步、预检与安装回报均未接入；这里的版本不能作为客户可安装应用。</span></div>
-        <p v-if="versionsLoading" class="candidate-help">正在加载候选版本…</p>
-        <div v-if="versionsError" class="ops-note"><AppIcon name="warning" :size="18" /><div><strong>版本记录暂不可用</strong><p>{{ versionsError }}</p></div><button class="button secondary" @click="loadVersions">重试</button></div>
-        <div v-if="!versionsLoading && !versionsError && !versions.length" class="candidate-empty">暂无候选版本。应用目录记录本身不包含可安装制品。</div>
-        <div v-for="item in versions" :key="item.version" class="candidate-version-card">
+        <div class="section-heading"><div><h2>旧版 Manifest 候选记录</h2><p>历史 v1 候选版本接口记录，仅供兼容查阅。</p></div><span class="candidate-internal-tag">仅内部可见</span></div>
+        <div v-for="item in legacyVersions" :key="item.version" class="candidate-version-card">
           <div class="candidate-version-header"><div><strong>{{ item.version }}</strong><span>· {{ item.publisher }}</span></div><span class="candidate-internal-tag">Center 已登记</span></div>
           <p>Manifest SHA-256 <code>{{ item.manifestSha256 }}</code></p>
           <p>来源 <a :href="item.sourceUrl" target="_blank" rel="noopener noreferrer">{{ item.sourceUrl }}</a> · 许可证 {{ item.licenseId }}</p>
-          <p>镜像 {{ item.artifacts?.length || 0 }} · 依赖 {{ item.dependencies?.length || 0 }} · 权限声明 {{ item.permissions?.length || 0 }}</p>
-          <div class="candidate-checks"><span v-for="check in item.validation" :key="check.code" :class="`candidate-check-${check.status}`" :title="check.detail">{{ check.code }}：{{ check.status === 'passed' ? '声明校验通过' : check.status === 'declared' ? '待审计' : '待接入' }}</span></div>
-          <details class="candidate-version-details"><summary>查看清单解析与证据</summary>
-            <dl>
-              <div><dt>模板 / 工作负载</dt><dd>{{ item.manifest?.deployment?.template_ref || '未声明' }} / {{ item.manifest?.deployment?.workload_name || '未声明' }}</dd></div>
-              <div><dt>资源声明</dt><dd>GPU {{ item.manifest?.required_resources?.gpu ?? '未声明' }} · 磁盘 {{ item.manifest?.required_resources?.disk_bytes ?? '未声明' }} bytes</dd></div>
-              <div><dt>能力</dt><dd>{{ item.manifest?.capabilities?.map((entry) => `${entry.capability_id}@${entry.version}`).join('、') || '未声明' }}</dd></div>
-              <div><dt>必需模型</dt><dd>{{ item.manifest?.required_models?.map((entry) => `${entry.model_id}@${entry.version}`).join('、') || '无' }}</dd></div>
-              <div><dt>入口</dt><dd>{{ item.manifest?.entrypoints?.map((entry) => `${entry.name} · ${entry.protocol} :${entry.port}${entry.path}`).join('、') || '未声明' }}</dd></div>
-              <div><dt>镜像摘要</dt><dd><code v-for="artifact in item.artifacts" :key="artifact.component">{{ artifact.component }} · {{ artifact.ref }}<br /></code></dd></div>
-              <div><dt>来源 revision</dt><dd><code>{{ item.sourceRevision }}</code></dd></div>
-              <div><dt>权限</dt><dd>{{ item.permissions?.map((entry) => `${entry.scope}：${entry.reason}`).join('；') || '未声明' }}</dd></div>
-            </dl>
-          </details>
         </div>
         <form v-if="!chartFlow" class="candidate-version-form" @submit.prevent="createVersion">
           <div class="section-heading"><div><h3>登记候选版本</h3><p>请提交固定来源 revision、许可证、版本化镜像摘要和 v1 Manifest。</p></div></div>
@@ -425,27 +559,23 @@ const save = async (channel = form.value.channel) => {
           <label class="form-field"><span>v1 Manifest JSON *</span><textarea v-model="versionForm.manifest" rows="9" required spellcheck="false" placeholder="粘贴应用 Manifest，或选择本地 JSON 文件" /></label>
           <label class="form-field candidate-file-field"><span>从文件读取 Manifest（仅本地读取，不单独上传）</span><input type="file" accept="application/json,.json" @change="readManifestFile" /></label>
           <div class="two-column-form candidate-json-fields"><label class="form-field"><span>依赖证据 JSON 数组</span><textarea v-model="versionForm.dependencies" rows="4" spellcheck="false" /></label><label class="form-field"><span>权限声明 JSON 数组</span><textarea v-model="versionForm.permissions" rows="4" spellcheck="false" /></label></div>
-          <p class="candidate-help">必需模型须在依赖数组中声明相同版本的来源、许可证与 SHA-256。镜像须使用固定版本标签及 @sha256 摘要。</p>
           <p v-if="versionError" class="form-error" role="alert">{{ versionError }}</p>
           <button class="button primary" type="submit" :disabled="versionSaving || versionsLoading || Boolean(versionsError)">{{ versionSaving ? '正在登记…' : '登记并冻结版本' }}</button>
         </form>
       </section>
 
       <section class="content-panel station-grants-panel">
-        <div class="section-heading"><div><h2>内部测试 Station 分发</h2><p>仅授权设备证书读取该应用的候选版本索引与不可变 Manifest；不提供镜像下载或安装命令。</p></div><span class="candidate-internal-tag">mTLS · 内部</span></div>
-        <div class="release-warning"><AppIcon name="warning" :size="18" /><span>Control 的独立 mTLS 监听器需先配置受信 CA 与服务端证书。设备 ID 必须与客户端证书的 SPIFFE URI 一致；这里只录入证书 SHA-256 指纹，不上传私钥或证书。</span></div>
-        <form v-if="!chartFlow && versions.length" class="station-grant-form" @submit.prevent="createGrant">
+        <div class="section-heading"><div><h2>内部测试 Station 分发</h2><p>仅授权设备证书读取该应用的候选版本索引与不可变 Manifest。</p></div><span class="candidate-internal-tag">mTLS · 内部</span></div>
+        <form v-if="!chartFlow && legacyVersions.length" class="station-grant-form" @submit.prevent="createGrant">
           <div class="two-column-form">
-            <label class="form-field"><span>候选版本 *</span><select v-model="grantForm.version" required><option value="">选择已冻结版本</option><option v-for="item in versions" :key="item.version" :value="item.version">{{ item.version }}</option></select></label>
+            <label class="form-field"><span>候选版本 *</span><select v-model="grantForm.version" required><option value="">选择已冻结版本</option><option v-for="item in legacyVersions" :key="item.version" :value="item.version">{{ item.version }}</option></select></label>
             <label class="form-field"><span>组织</span><input value="org_verdantflare · 内部测试" disabled /></label>
             <label class="form-field"><span>Station ID（UUIDv7）*</span><input v-model.trim="grantForm.stationId" required autocomplete="off" placeholder="xxxxxxxx-xxxx-7xxx-xxxx-xxxxxxxxxxxx" /></label>
             <label class="form-field"><span>设备证书 SHA-256 指纹 *</span><input v-model.trim="grantForm.certificateSha256" required minlength="64" maxlength="64" pattern="[a-fA-F0-9]{64}" autocomplete="off" placeholder="64 位十六进制" /></label>
             <label class="form-field"><span>授权到期 *</span><input v-model="grantForm.expiresAt" type="datetime-local" required /></label>
           </div>
-          <p class="candidate-help">有效期最多 30 天；如需更换证书，先撤销原授权再登记新指纹。登记不会证明制品可运行。</p>
           <button class="button secondary" type="submit" :disabled="grantSaving || grantsLoading">{{ grantSaving ? '正在登记…' : '授权读取候选清单' }}</button>
         </form>
-        <p v-else class="candidate-empty">Chart 流程尚未接入候选制品分发；旧版 Manifest 授权只供现有流程查阅。</p>
         <div v-if="grantsError" class="ops-note" role="alert"><AppIcon name="warning" :size="18" /><div><strong>设备授权操作未完成</strong><p>{{ grantsError }}</p></div><button class="button secondary" @click="loadGrants">刷新</button></div>
         <p v-if="grantsLoading" class="candidate-help">正在加载授权记录…</p>
         <div v-else-if="!grants.length" class="candidate-empty">尚无内部 Station 授权。</div>
@@ -455,8 +585,6 @@ const save = async (channel = form.value.channel) => {
         </div>
       </section>
       </details>
-
-      <section class="content-panel validation-panel"><div class="section-heading"><div><h2>Station 验证</h2><p>尚未接入真实验证结果；Control 中的历史计数不作为部署或运行证明。</p></div><strong>未接入</strong></div></section>
     </template>
   </div>
 </template>

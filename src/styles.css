@@ -1307,7 +1307,11 @@ button { letter-spacing: .005em; }
 .table-action:disabled { opacity: .42; cursor: not-allowed; }
 .table-action-unavailable { color: var(--muted); }
 .data-table .key-actions { display: flex; align-items: center; justify-content: flex-start; gap: 12px; white-space: nowrap; }
-.release-table .table-head, .release-table .table-row { min-width: 900px; grid-template-columns: minmax(150px, 1.4fr) minmax(105px, .8fr) 105px minmax(105px, .75fr) 112px 100px 74px; }
+.release-table { overflow-x: auto; }
+.release-table .table-head, .release-table .table-row { min-width: 900px; grid-template-columns: minmax(150px, 1.4fr) 95px minmax(160px, 1.15fr) 80px 108px 85px 65px; }
+.release-table .table-row > .table-state { display: block; position: relative; min-width: 0; padding-left: 12px; white-space: normal; overflow-wrap: anywhere; line-height: 1.45; }
+.release-table .table-row > .table-state::before { position: absolute; top: .55em; left: 0; }
+.release-table .table-row > :nth-child(5) { min-width: 0; overflow-wrap: anywhere; }
 .organization-table .table-head, .organization-table .table-row { min-width: 1060px; grid-template-columns: minmax(180px, 1.4fr) 90px 70px 85px 120px 100px 78px 74px; }
 .member-table .table-head, .member-table .table-row { min-width: 690px; grid-template-columns: minmax(205px, 1.6fr) minmax(100px, .8fr) 105px 80px 74px; }
 .keys-table .table-head, .keys-table .table-row { min-width: 1040px; grid-template-columns: minmax(140px, 1.2fr) minmax(120px, 1fr) minmax(165px, 1.4fr) 110px 115px 75px 134px; }

@@ -28,7 +28,7 @@ let scrollSaveTimer;
 const selectedId = computed(() => marketAppIdFromPath(props.path));
 const selectedApp = computed(() => apps.value.find((app) => app.id === resolvedMarketAppId(selectedId.value, apps.value)));
 watch([selectedId, selectedApp], ([id, app]) => {
-  if (id === "blender-mcp" && app?.id === "blender") replace(`/market/apps/blender${window.location.search}${window.location.hash}`);
+  if (id && app?.id !== id) replace(`/market/apps/${app.id}${window.location.search}${window.location.hash}`);
 });
 const listedOnly = computed(() => selectedApp.value?.channel === "Listed");
 const showcase = computed(() => selectedApp.value?.showcase || {});

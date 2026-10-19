@@ -74,6 +74,12 @@ test("Blender legacy link follows the canonical catalog record only after migrat
   assert.equal(resolvedMarketAppId("comfyui", [{ id: "blender" }]), "comfyui");
 });
 
+test("Music and Video legacy links keep working after catalog identity merge", () => {
+  assert.equal(resolvedMarketAppId("music-mcp-server", [{ id: "music-mcp" }]), "music-mcp");
+  assert.equal(resolvedMarketAppId("video-mcp-server", [{ id: "video-mcp" }]), "video-mcp");
+  assert.equal(resolvedMarketAppId("music-mcp-server", [{ id: "music-mcp-server" }]), "music-mcp-server");
+});
+
 test("router navigation carries a detail return context and browser back retains the original list entry", async () => {
   const originalWindow = globalThis.window;
   const events = new Map();

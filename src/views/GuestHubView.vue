@@ -23,7 +23,7 @@ const appId = computed(() => props.path.startsWith("/market/apps/") ? props.path
 const selectedModel = computed(() => models.value.find((model) => model.id === modelId.value));
 const selectedApp = computed(() => apps.value.find((app) => app.id === resolvedMarketAppId(appId.value, apps.value)));
 watch([appId, selectedApp], ([id, app]) => {
-  if (id === "blender-mcp" && app?.id === "blender") replace(`/market/apps/blender${window.location.search}${window.location.hash}`);
+  if (id && app?.id !== id) replace(`/market/apps/${app.id}${window.location.search}${window.location.hash}`);
 });
 
 const loadCatalog = async () => {

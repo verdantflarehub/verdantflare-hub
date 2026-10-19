@@ -76,10 +76,11 @@ const load = async () => {
   chartRequest += 1;
   chartAuditing.value = false;
   try {
-    if (appId.value === "blender-mcp") {
+    const legacyId = { "blender-mcp": "blender", "music-mcp-server": "music-mcp", "video-mcp-server": "video-mcp" }[appId.value];
+    if (legacyId) {
       try {
-        await controlApi.getManagedApp("blender");
-        replace(`/ops/apps/blender/releases${window.location.search}${window.location.hash}`);
+        await controlApi.getManagedApp(legacyId);
+        replace(`/ops/apps/${legacyId}/releases${window.location.search}${window.location.hash}`);
         return;
       } catch {
         // The old record remains usable until the catalog migration is applied.
@@ -277,6 +278,9 @@ const save = async (channel = form.value.channel) => {
     record.value = await controlApi.updateManagedApp(appId.value, {
       name: form.value.name,
       groupId: form.value.groupId || "",
+      sortOrder: Number(form.value.sortOrder ?? 1000),
+      brand: form.value.brand || "",
+      iconRef: form.value.iconRef || "",
       version: form.value.version,
       category: form.value.category,
       summary: form.value.summary,
@@ -331,6 +335,7 @@ const save = async (channel = form.value.channel) => {
       <section id="release-basics" class="content-panel manifest-panel release-section" tabindex="-1" aria-label="应用目录资料">
           <div class="section-heading"><div><h2>第一步 · 应用目录资料</h2><p>星号字段为资料上架必填；资源、镜像和部署条件以受控 Chart 为准。</p></div></div>
           <div class="two-column-form"><label class="form-field"><span>应用名称 *</span><input v-model.trim="form.name" /></label><label class="form-field"><span>应用主分组</span><input :value="form.groupId || '旧版目录未登记'" disabled /></label><label class="form-field"><span>目录展示版本</span><input v-if="chartFlow" :value="record.app.version || '待可信 Chart 版本登记'" disabled /><input v-else v-model.trim="form.version" /></label><label class="form-field"><span>市场分类 *</span><input v-model.trim="form.category" /></label><label v-if="!chartFlow" class="form-field"><span>旧版推荐资源</span><input v-model.trim="form.gpu" /></label><label v-if="!chartFlow" class="form-field"><span>旧版体验时长说明</span><input v-model.trim="form.duration" /></label></div>
+          <div class="two-column-form"><label class="form-field"><span>目录排序（0–1000000）</span><input v-model.number="form.sortOrder" type="number" min="0" max="1000000" /></label><label class="form-field"><span>品牌标识</span><input v-model.trim="form.brand" /></label><label class="form-field"><span>图标引用</span><input v-model.trim="form.iconRef" placeholder="例如 brand:blender" /></label></div>
           <label class="form-field"><span>一句话简介 *</span><textarea v-model.trim="form.summary" rows="3" /></label>
           <div class="section-heading"><div><h2>客户详情展示</h2><p>按截图组织展示内容；每行一条截图、功能或权限。图片与外部链接使用 HTTPS。</p></div></div>
           <label class="form-field"><span>开发者 *</span><input v-model.trim="form.developer" /></label>

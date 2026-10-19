@@ -46,5 +46,7 @@ export const marketAppIdFromPath = (path) => {
   }
 };
 
-export const resolvedMarketAppId = (id, apps) =>
-  id === "blender-mcp" && apps.some((app) => app.id === "blender") ? "blender" : id;
+export const resolvedMarketAppId = (id, apps) => {
+  const canonical = { "blender-mcp": "blender", "music-mcp-server": "music-mcp", "video-mcp-server": "video-mcp" }[id];
+  return canonical && apps.some((app) => app.id === canonical) ? canonical : id;
+};

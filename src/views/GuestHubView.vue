@@ -1,9 +1,10 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import AppIcon from "../components/AppIcon.vue";
 import CatalogCard from "../components/CatalogCard.vue";
 import { controlApi } from "../api/control";
-import { navigate } from "../router";
+import { navigate, replace } from "../router";
+import { resolvedMarketAppId } from "../utils/marketNavigation";
 
 const props = defineProps({
   path: { type: String, default: "/" },
@@ -20,7 +21,10 @@ const title = computed(() => ({ overview: "探索 VerdantFlare", models: "模型
 const modelId = computed(() => props.path.startsWith("/api/models/") ? props.path.slice("/api/models/".length) : "");
 const appId = computed(() => props.path.startsWith("/market/apps/") ? props.path.slice("/market/apps/".length) : "");
 const selectedModel = computed(() => models.value.find((model) => model.id === modelId.value));
-const selectedApp = computed(() => apps.value.find((app) => app.id === appId.value));
+const selectedApp = computed(() => apps.value.find((app) => app.id === resolvedMarketAppId(appId.value, apps.value)));
+watch([appId, selectedApp], ([id, app]) => {
+  if (id === "blender-mcp" && app?.id === "blender") replace(`/market/apps/blender${window.location.search}${window.location.hash}`);
+});
 
 const loadCatalog = async () => {
   loading.value = true;

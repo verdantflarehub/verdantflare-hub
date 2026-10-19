@@ -6,6 +6,7 @@ import {
   marketHistoryStateForNavigation,
   readMarketListState,
   readMarketReturnState,
+  resolvedMarketAppId,
   withMarketListState,
 } from "../src/utils/marketNavigation.js";
 
@@ -67,6 +68,12 @@ test("application paths decode encoded IDs and tolerate invalid percent sequence
   assert.equal(marketAppIdFromPath("/market"), "");
 });
 
+test("Blender legacy link follows the canonical catalog record only after migration", () => {
+  assert.equal(resolvedMarketAppId("blender-mcp", [{ id: "blender-mcp" }]), "blender-mcp");
+  assert.equal(resolvedMarketAppId("blender-mcp", [{ id: "blender" }]), "blender");
+  assert.equal(resolvedMarketAppId("comfyui", [{ id: "blender" }]), "comfyui");
+});
+
 test("router navigation carries a detail return context and browser back retains the original list entry", async () => {
   const originalWindow = globalThis.window;
   const events = new Map();
@@ -90,6 +97,10 @@ test("router navigation carries a detail return context and browser back retains
         index += 1;
         applyLocation();
       },
+      replaceState(state, _title, url) {
+        entries[index] = { url, state };
+        applyLocation();
+      },
       back() {
         index -= 1;
         applyLocation();
@@ -98,9 +109,13 @@ test("router navigation carries a detail return context and browser back retains
     },
   };
   try {
-    const { navigate, currentPath } = await import("../src/router.js");
+    const { navigate, replace, currentPath } = await import("../src/router.js");
     navigate("/market/apps/comfyui");
     assert.equal(currentPath.value, "/market/apps/comfyui");
+    assert.deepEqual(readMarketReturnState(window.history.state, "org-a"), listContext);
+    replace("/market/apps/blender?q=legacy");
+    assert.equal(currentPath.value, "/market/apps/blender");
+    assert.equal(entries.length, 2);
     assert.deepEqual(readMarketReturnState(window.history.state, "org-a"), listContext);
     window.history.back();
     assert.equal(currentPath.value, "/market");

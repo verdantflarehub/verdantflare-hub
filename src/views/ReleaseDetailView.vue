@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
 import StatusBadge from "../components/StatusBadge.vue";
-import { navigate } from "../router";
+import { navigate, replace } from "../router";
 
 const props = defineProps({ path: String });
 const emit = defineEmits(["toast"]);
@@ -76,6 +76,15 @@ const load = async () => {
   chartRequest += 1;
   chartAuditing.value = false;
   try {
+    if (appId.value === "blender-mcp") {
+      try {
+        await controlApi.getManagedApp("blender");
+        replace(`/ops/apps/blender/releases${window.location.search}${window.location.hash}`);
+        return;
+      } catch {
+        // The old record remains usable until the catalog migration is applied.
+      }
+    }
     record.value = await controlApi.getManagedApp(appId.value);
     form.value = { ...record.value.app, showcase: { screenshots: [], highlights: [], permissions: [], ...record.value.app.showcase } };
     screenshotsText.value = (form.value.showcase?.screenshots || []).join("\n");

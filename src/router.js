@@ -29,6 +29,15 @@ export const navigate = (target) => {
   window.scrollTo({ top: 0, behavior: "instant" });
 };
 
+export const replace = (target) => {
+  const url = new URL(target, window.location.origin);
+  const next = normalizePath(url.pathname);
+  if (next === path.value && url.search === search.value) return;
+  window.history.replaceState(window.history.state, "", `${next}${url.search}${url.hash}`);
+  path.value = next;
+  search.value = url.search;
+};
+
 export const isPathActive = (href, exact = false) => {
   if (exact) return path.value === href;
   return path.value === href || path.value.startsWith(`${href}/`);

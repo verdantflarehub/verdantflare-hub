@@ -45,3 +45,6 @@ export const marketAppIdFromPath = (path) => {
     return id;
   }
 };
+
+export const resolvedMarketAppId = (id, apps) =>
+  id === "blender-mcp" && apps.some((app) => app.id === "blender") ? "blender" : id;

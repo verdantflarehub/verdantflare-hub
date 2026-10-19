@@ -4,9 +4,9 @@ import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
 import CatalogCard from "../components/CatalogCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
-import { navigate } from "../router";
+import { navigate, replace } from "../router";
 import { appCardActions, appCardTags, catalogStatus } from "../utils/appCatalogPresentation";
-import { marketAppIdFromPath, marketFiltersForCatalog, readMarketListState, readMarketReturnState, withMarketListState } from "../utils/marketNavigation";
+import { marketAppIdFromPath, marketFiltersForCatalog, readMarketListState, readMarketReturnState, resolvedMarketAppId, withMarketListState } from "../utils/marketNavigation";
 
 const props = defineProps({ path: String, query: { type: String, default: "" }, organization: Object });
 const organizationId = computed(() => props.organization?.organizationId);
@@ -26,7 +26,10 @@ let applyingFilters = false;
 let scrollSaveTimer;
 
 const selectedId = computed(() => marketAppIdFromPath(props.path));
-const selectedApp = computed(() => apps.value.find((app) => app.id === selectedId.value));
+const selectedApp = computed(() => apps.value.find((app) => app.id === resolvedMarketAppId(selectedId.value, apps.value)));
+watch([selectedId, selectedApp], ([id, app]) => {
+  if (id === "blender-mcp" && app?.id === "blender") replace(`/market/apps/blender${window.location.search}${window.location.hash}`);
+});
 const listedOnly = computed(() => selectedApp.value?.channel === "Listed");
 const showcase = computed(() => selectedApp.value?.showcase || {});
 const detailFacts = computed(() => {

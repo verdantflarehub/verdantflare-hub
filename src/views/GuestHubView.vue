@@ -113,7 +113,7 @@ onMounted(loadCatalog);
         <section v-if="!modelId && !appId && section !== 'models'" class="guest-catalog" aria-labelledby="guest-app-heading">
           <div class="guest-section-heading"><div><span>APP MARKET</span><h2 id="guest-app-heading">已收录应用</h2><p>浏览 Hub 已上架资料；是否可安装和运行，须由当前 Station 在 Studio 中核验。</p></div><strong>{{ apps.length }} 个应用</strong></div>
           <div v-if="apps.length" class="catalog-card-grid">
-            <CatalogCard v-for="app in apps" :key="app.id" :title="app.name" :meta="[app.developer || app.category, app.version ? `v${app.version}` : '资料已收录'].join(' · ')" :description="app.summary" icon="market" :icon-url="app.iconUrl" :tags="[app.category, app.channel === 'Listed' ? '资料已收录' : '目录版本已发布'].filter(Boolean)" status="仅供浏览" :actions="[{ label: '查看资料', to: `/market/apps/${encodeURIComponent(app.id)}` }]" />
+            <CatalogCard v-for="app in apps" :key="app.id" :title="app.name" :meta="[app.developer || app.category, app.version ? `v${app.version}` : '资料已收录'].join(' · ')" :description="app.summary" icon="market" :icon-url="app.iconUrl" :icon-ref="app.iconRef || ''" :brand="app.brand || ''" :tags="[app.category, app.channel === 'Listed' ? '资料已收录' : '目录版本已发布'].filter(Boolean)" status="仅供浏览" :actions="[{ label: '查看资料', to: `/market/apps/${encodeURIComponent(app.id)}` }]" />
           </div>
           <div v-else class="guest-empty"><AppIcon name="market" :size="25" /><strong>暂无已收录应用</strong><p>管理员上架后，这里会自动显示真实目录记录。</p></div>
         </section>

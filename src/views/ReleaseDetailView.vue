@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
+import BrandAppIcon from "../components/BrandAppIcon.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { navigate, replace } from "../router";
 import {
@@ -401,7 +402,7 @@ const save = async (channel = form.value.channel) => {
     <section v-if="error" class="ops-note" role="alert"><AppIcon name="warning" :size="19" /><div><strong>操作未完成</strong><p>{{ error }}</p><p v-if="record">已填写内容仍保留，请检查后重新保存。</p></div><button v-if="!record" class="button secondary" @click="load">重新加载</button></section>
     <template v-if="record && form">
       <section class="detail-command-bar internal-detail">
-        <div class="app-large-icon" :class="record.app.tone"><AppIcon :name="record.app.icon || 'market'" :size="31" /></div>
+        <div class="app-large-icon" :class="record.app.tone"><BrandAppIcon :icon-url="form.publicIconUrl || record.app.publicIconUrl" :icon-ref="form.iconRef || record.app.iconRef" :brand="form.brand || record.app.brand" :fallback-icon="record.app.icon || 'market'" :size="31" /></div>
         <div class="detail-title-copy"><span class="page-overline internal-overline">APP RELEASE</span><h1>{{ record.app.name }} · {{ record.app.publishedVersion || record.app.version || '版本待登记' }}</h1><p>应用 ID：<code>{{ record.app.id }}</code> · 修订 <code>rev {{ record.app.revision || 1 }}</code> · 已授权 {{ record.release.audience }}</p></div>
         <div class="detail-command-actions"><StatusBadge :label="record.app.channel === 'Preview' ? '目录预览' : record.release.status" /><a class="button secondary" :href="controlApi.opsAppsYamlUrl()" target="_blank" rel="noopener noreferrer">查看 apps.yaml</a><button v-if="record.app.channel === 'Listed' || record.app.publicVisible" class="button secondary" @click="navigate(`/market/apps/${encodeURIComponent(appId)}`)">查看已上架详情</button><button class="button secondary" :disabled="saving" @click="save()">保存资料</button><button v-if="record.app.channel === 'Candidate'" class="button primary" :disabled="saving || !canList" @click="save('Listed')">仅上架 Hub 资料</button></div>
       </section>

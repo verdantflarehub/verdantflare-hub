@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
+import BrandAppIcon from "../components/BrandAppIcon.vue";
 import CatalogCard from "../components/CatalogCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { navigate, replace } from "../router";
@@ -170,7 +171,7 @@ onBeforeUnmount(() => {
   <div v-else-if="selectedApp" class="page app-detail-page">
     <button class="back-button" @click="returnToMarket"><AppIcon name="arrow" :size="16" />返回应用市场</button>
     <section class="app-detail-hero">
-      <div class="app-large-icon" :class="selectedApp.tone"><img v-if="selectedApp.publicIconUrl" :src="selectedApp.publicIconUrl" :alt="`${selectedApp.name} 图标`" /><AppIcon v-else :name="selectedApp.icon" :size="38" /></div>
+      <div class="app-large-icon" :class="selectedApp.tone"><BrandAppIcon :icon-url="selectedApp.publicIconUrl" :icon-ref="selectedApp.iconRef" :brand="selectedApp.brand" :fallback-icon="selectedApp.icon || 'market'" :size="38" :alt="`${selectedApp.name} 图标`" /></div>
       <div class="app-detail-copy">
         <div class="detail-meta"><span>{{ selectedApp.category }}</span><span>应用资料</span></div>
         <h1>{{ selectedApp.name }}</h1>
@@ -222,7 +223,7 @@ onBeforeUnmount(() => {
     <section class="market-catalog">
       <div class="section-heading"><div><h2>应用列表</h2><p>{{ filteredApps.length }} 个应用 · 其中 {{ filteredApps.filter((app) => app.entitled).length }} 个已授权 · 权益版本 v{{ organization.entitlementVersion }}</p></div></div>
       <div class="catalog-card-grid">
-        <CatalogCard v-for="app in filteredApps" :key="app.id" :title="app.name" :meta="app.version ? `${app.developer || app.category} · 目录版本 v${app.version}` : `${app.developer || app.category} · 版本待登记`" :description="app.summary" :icon="app.icon || 'market'" :icon-url="app.publicIconUrl" :tags="appCardTags(app)" :status="catalogStatus(app)" status-tone="neutral" :actions="appCardActions(app)" />
+        <CatalogCard v-for="app in filteredApps" :key="app.id" :title="app.name" :meta="app.version ? `${app.developer || app.category} · 目录版本 v${app.version}` : `${app.developer || app.category} · 版本待登记`" :description="app.summary" :icon="app.icon || 'market'" :icon-url="app.publicIconUrl" :icon-ref="app.iconRef || ''" :brand="app.brand || ''" :tags="appCardTags(app)" :status="catalogStatus(app)" status-tone="neutral" :actions="appCardActions(app)" />
       </div>
     </section>
     <div v-if="apps.length === 0" class="empty-state"><AppIcon name="market" :size="28" /><strong>暂无可见应用</strong><span>当前组织暂无可见的应用，稍后可重新加载查看。</span><button class="button secondary" @click="loadApps">重新加载</button></div>

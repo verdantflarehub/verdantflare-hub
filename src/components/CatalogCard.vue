@@ -1,28 +1,27 @@
 <script setup>
-import { ref, watch } from "vue";
-import AppIcon from "./AppIcon.vue";
+import BrandAppIcon from "./BrandAppIcon.vue";
 import { navigate } from "../router";
 
-const iconFailed = ref(false);
-const props = defineProps({
+defineProps({
   title: { type: String, required: true },
   meta: { type: String, default: "" },
   description: { type: String, default: "" },
   icon: { type: String, default: "market" },
   iconUrl: { type: String, default: "" },
+  iconRef: { type: String, default: "" },
+  brand: { type: String, default: "" },
   tags: { type: Array, default: () => [] },
   status: { type: String, required: true },
   statusTone: { type: String, default: "neutral" },
   actions: { type: Array, default: () => [] },
   highlighted: { type: Boolean, default: false },
 });
-watch(() => props.iconUrl, () => { iconFailed.value = false; });
 </script>
 
 <template>
   <article class="catalog-card" :class="{ 'is-highlighted': highlighted }">
     <div class="catalog-card-top">
-      <span class="catalog-card-icon" aria-hidden="true"><img v-if="iconUrl && !iconFailed" :src="iconUrl" alt="" @error="iconFailed = true" /><AppIcon v-else :name="icon" :size="25" /></span>
+      <span class="catalog-card-icon" aria-hidden="true"><BrandAppIcon :icon-url="iconUrl" :icon-ref="iconRef" :brand="brand" :fallback-icon="icon" :size="26" /></span>
       <div class="catalog-card-heading">
         <h3>{{ title }}</h3>
         <span v-if="meta">{{ meta }}</span>

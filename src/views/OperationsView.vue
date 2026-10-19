@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
+import BrandAppIcon from "../components/BrandAppIcon.vue";
 import MetricCard from "../components/MetricCard.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { navigate } from "../router";
@@ -96,7 +97,7 @@ const create = async () => {
       <section class="metric-grid compact"><MetricCard label="应用总数" :value="String(releases.length)" detail="来自 Control Service" icon="release" tone="mint" /><MetricCard label="可安装分发" :value="String(releases.filter((item) => item.enabled || item.publishedVersion || item.channel === 'Stable').length)" detail="已绑定可信 Chart OCI" icon="market" tone="blue" /><MetricCard label="仅目录 / 草稿" :value="String(releases.filter((item) => !item.enabled && !item.publishedVersion && item.channel !== 'Stable').length)" detail="等待 Chart OCI 登记或上架" icon="warning" tone="coral" /></section>
       <div class="task-filters release-filters"><button v-for="filter in ['全部', '已发布', '灰度中', '目录已上架', '候选', '已暂停']" :key="filter" :class="{ active: releaseFilter === filter }" @click="releaseFilter = filter">{{ filter }}</button><label class="search-field small"><AppIcon name="search" :size="16" /><input v-model="search" placeholder="搜索应用或版本" /></label></div>
       <p v-if="loading">正在加载发布记录…</p>
-      <div v-else class="data-table release-table"><div class="table-head"><span>应用</span><span>版本 / 通道</span><span>Chart OCI 状态</span><span>客户范围</span><span>更新时间</span><span>目录状态</span><span>操作</span></div><div v-for="release in filteredReleases" :key="release.appId" class="table-row"><span><strong>{{ release.app }}</strong><small>{{ release.appId }} · {{ release.groupId || '未分组' }}</small></span><span><b>{{ release.publishedVersion || release.version || '待登记' }}</b><small>{{ release.channel }}</small></span><span class="table-state">{{ release.publishedVersion ? `OCI ${release.publishedVersion}` : (release.disabledReason || '仅目录展示') }}</span><span>{{ release.audience }}</span><span>{{ release.updated || '—' }}</span><StatusBadge :label="release.channel === 'Preview' ? '目录预览' : release.status" /><button class="table-action" :aria-label="`管理 ${release.app} 发布`" @click="navigate(`/ops/apps/${release.appId}/releases`)">配置<AppIcon name="arrow" :size="15" /></button></div></div>
+      <div v-else class="data-table release-table"><div class="table-head"><span>应用</span><span>版本 / 通道</span><span>Chart OCI 状态</span><span>客户范围</span><span>更新时间</span><span>目录状态</span><span>操作</span></div><div v-for="release in filteredReleases" :key="release.appId" class="table-row"><span class="table-app-cell"><span class="table-app-icon" aria-hidden="true"><BrandAppIcon :icon-url="release.publicIconUrl" :icon-ref="release.iconRef" :brand="release.brand" fallback-icon="market" :size="20" /></span><span><strong>{{ release.app }}</strong><small>{{ release.appId }} · {{ release.groupId || '未分组' }}</small></span></span><span><b>{{ release.publishedVersion || release.version || '待登记' }}</b><small>{{ release.channel }}</small></span><span class="table-state">{{ release.publishedVersion ? `OCI ${release.publishedVersion}` : (release.disabledReason || '仅目录展示') }}</span><span>{{ release.audience }}</span><span>{{ release.updated || '—' }}</span><StatusBadge :label="release.channel === 'Preview' ? '目录预览' : release.status" /><button class="table-action" :aria-label="`管理 ${release.app} 发布`" @click="navigate(`/ops/apps/${release.appId}/releases`)">配置<AppIcon name="arrow" :size="15" /></button></div></div>
       <p v-if="!loading && !filteredReleases.length">没有符合条件的应用。</p>
     </template>
 
@@ -135,3 +136,23 @@ const create = async () => {
     </Transition>
   </div>
 </template>
+
+<style scoped>
+.table-app-cell {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.table-app-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(76, 227, 154, 0.06);
+  color: var(--green);
+}
+</style>

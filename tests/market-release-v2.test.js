@@ -6,7 +6,8 @@ import {
   formatChartCompatibility,
   hasVerifiedOciChartVersion,
 } from "../src/utils/marketReleaseV2.js";
-import { normalizeBrandIconRef, resolveBrandLogoDescriptor } from "../src/utils/appBrandLogo.js";
+import fs from "node:fs";
+import { nextBrandLogoUid, normalizeBrandIconRef, resolveBrandLogoDescriptor } from "../src/utils/appBrandLogo.js";
 
 const validDigestA = "sha256:1111111111111111111111111111111111111111111111111111111111111111";
 const validDigestB = "sha256:2222222222222222222222222222222222222222222222222222222222222222";
@@ -108,4 +109,13 @@ test("resolveBrandLogoDescriptor synchronizes all 10 Studio AppCenter brand Logo
     assert.equal(desc.brandRef, pathRef);
     assert.ok(desc.d.length > 20);
   }
+  const uidA = nextBrandLogoUid();
+  const uidB = nextBrandLogoUid();
+  assert.equal(uidB, uidA + 1);
+
+  const sfc = fs.readFileSync(new URL("../src/components/BrandAppIcon.vue", import.meta.url), "utf8");
+  assert.match(sfc, /stop-color="#E2167E"/);
+  assert.match(sfc, /stop-color="#FE603C"/);
+  assert.match(sfc, /v-else-if="descriptor\.kind === 'path-svg'"\s+class="brand-app-icon-svg brand-app-icon-mono"/);
 });
+

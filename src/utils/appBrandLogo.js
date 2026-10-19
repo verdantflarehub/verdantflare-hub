@@ -50,3 +50,11 @@ export function resolveBrandLogoDescriptor({ iconUrl = "", iconRef = "", brand =
   }
   return { kind: "fallback", brandRef: normalizedRef };
 }
+
+let brandLogoUidCounter = 0;
+export function nextBrandLogoUid() {
+  brandLogoUidCounter += 1;
+  return brandLogoUidCounter;
+}
+
+

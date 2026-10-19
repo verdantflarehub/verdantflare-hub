@@ -45,7 +45,7 @@ defineProps({
 .catalog-card:hover, .catalog-card:focus-within { border-color: rgba(76, 227, 154, .42); background: rgba(244, 241, 232, .045); transform: translateY(-2px); }
 .catalog-card.is-highlighted { border-color: rgba(76, 227, 154, .58); box-shadow: inset 3px 0 0 var(--green); }
 .catalog-card-top { min-width: 0; display: flex; align-items: center; gap: 13px; }
-.catalog-card-icon { width: 46px; height: 46px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: rgba(76, 227, 154, .07); color: var(--green); }
+.catalog-card-icon { width: 46px; height: 46px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: rgba(244, 241, 232, .04); color: var(--paper); }
 .catalog-card-icon img { width: 28px; height: 28px; object-fit: contain; }
 .catalog-card-heading { min-width: 0; }
 .catalog-card-heading h3 { margin: 0; overflow-wrap: anywhere; font-size: 17px; font-weight: 650; line-height: 1.35; letter-spacing: -.02em; }

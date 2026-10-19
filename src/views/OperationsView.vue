@@ -152,7 +152,7 @@ const create = async () => {
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 7px;
-  background: rgba(76, 227, 154, 0.06);
-  color: var(--green);
+  background: rgba(244, 241, 232, 0.04);
+  color: var(--paper);
 }
 </style>

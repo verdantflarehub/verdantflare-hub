@@ -17,7 +17,7 @@ const orgOpen = ref(false);
 const profileOpen = ref(false);
 const initials = computed(() => props.context.displayName?.slice(0, 2) || "VF");
 const orgInitials = computed(() => props.activeOrganization.shortName || props.activeOrganization.name?.slice(0, 1) || "组");
-const groups = [
+const groups = computed(() => [
   { label: "工作空间", items: [
     { label: "工作台", icon: "overview", href: "/", exact: true },
     { label: "模型市场", icon: "models", href: "/api/models" },
@@ -34,8 +34,9 @@ const groups = [
     { label: "组织信息", icon: "organization", href: "/settings/organization" },
     { label: "成员与角色", icon: "members", href: "/settings/members" },
     { label: "套餐与账单", icon: "billing", href: "/settings/billing" },
-  ] },
-];
+    props.canManageApps && { label: "MCP 访问令牌", icon: "key", href: "/settings/mcp-tokens" },
+  ].filter(Boolean) },
+]);
 const opsItems = computed(() => [
   props.canManageModels && { label: "模型上架", icon: "models", href: "/ops/models" },
   props.canManageApps && { label: "应用发布", icon: "release", href: "/ops/apps" },

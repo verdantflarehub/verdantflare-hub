@@ -271,7 +271,7 @@ const saveMember = async () => {
 
       <div class="detail-two-column organization-detail-grid">
         <section class="content-panel">
-          <div class="section-heading"><div><h2>应用权益</h2><p>这里只列出 Preview / Stable 可授权应用；Listed 应用仅供浏览，不列入授权选项。</p></div><span>v{{ record.organization.entitlementVersion }}</span></div>
+          <div class="section-heading"><div><h2>应用权益</h2><p>这里只列出正在分发的 Preview / Stable 应用；已停用应用和 Listed 资料不列入授权选项。</p></div><span>v{{ record.organization.entitlementVersion }}</span></div>
           <p class="entitlement-summary" role="status">已保存 {{ record.appIds.length }} 项授权 · 本次选择 {{ form.appIds.length }} 项 · 可授权选项 {{ record.apps.length }} 项</p>
           <div class="entitlement-list"><label v-for="app in record.apps" :key="app.id" :class="{ selected: form.appIds.includes(app.id) }"><span class="app-card-icon" :class="app.tone"><AppIcon :name="app.icon || 'market'" :size="19" /></span><span><strong>{{ app.name }}</strong><small>{{ app.channel }} · {{ app.version }} · {{ app.gpu }}</small><small>{{ entitlementState(app.id) }}</small></span><input v-model="form.appIds" type="checkbox" :value="app.id" :disabled="saving" :aria-label="`授予 ${app.name} 应用权益`" /></label></div>
           <p v-if="!record.apps.length">暂无可授权选项。应用可在市场展示资料后，继续准备符合发布条件的版本。</p>

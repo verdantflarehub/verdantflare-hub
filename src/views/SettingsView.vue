@@ -33,21 +33,12 @@ const transferRole = ref("成员");
 const transferTargets = ref([]);
 const transferError = ref("");
 const transferLoading = ref(false);
-const mcpTokens = ref([]);
-const mcpTokensError = ref("");
-const mcpTokensLoading = ref(false);
-const mcpTokenDraft = ref({ name: "", expiresInDays: 90 });
-const createdMcpToken = ref(null);
-const mcpEndpoint = `${window.location.origin}/mcp`;
-
 const section = computed(() => props.path.split("/")[2] || "organization");
 const canManageMembers = computed(() => props.organization?.roles?.includes("organization_admin"));
-const canManageMcpTokens = computed(() => props.organization?.roles?.includes("app_ops_admin"));
 const titles = {
   organization: ["ORGANIZATION", "组织信息", "管理组织资料、区域与业务标识。"],
   members: ["MEMBERS & ROLES", "成员与角色", "选择已验证的待开通账号，分配组织角色并管理成员。"],
   billing: ["PLAN & BILLING", "套餐与账单", "查看套餐、真实额度、赠送记录与付款状态。"],
-  "mcp-tokens": ["MCP ACCESS TOKENS", "MCP 访问令牌", "为 AI 工具签发调用 Hub Market MCP 的令牌，用于发布、更新与停用应用。"],
 };
 const pageTitle = computed(() => titles[section.value] || titles.organization);
 
@@ -90,58 +81,7 @@ watch([section, () => props.organization?.organizationId], ([value]) => {
   billing.value = null;
   if (value === "members" && props.organization) loadMembers();
   if (value === "billing" && props.organization) loadBilling();
-  if (value === "mcp-tokens" && props.organization) loadMcpTokens();
 }, { immediate: true });
-
-const loadMcpTokens = async () => {
-  createdMcpToken.value = null;
-  if (!canManageMcpTokens.value) { mcpTokens.value = []; return; }
-  mcpTokensLoading.value = true;
-  mcpTokensError.value = "";
-  try {
-    mcpTokens.value = await controlApi.listMcpTokens();
-  } catch (cause) {
-    mcpTokensError.value = cause instanceof Error ? cause.message : "访问令牌加载失败";
-  } finally {
-    mcpTokensLoading.value = false;
-  }
-};
-const createMcpToken = async () => {
-  if (saving.value || mcpTokenDraft.value.name.trim().length < 2) return;
-  saving.value = true;
-  mcpTokensError.value = "";
-  try {
-    createdMcpToken.value = await controlApi.createMcpToken({ name: mcpTokenDraft.value.name.trim(), expiresInDays: Number(mcpTokenDraft.value.expiresInDays) });
-    mcpTokenDraft.value = { name: "", expiresInDays: 90 };
-    mcpTokens.value = await controlApi.listMcpTokens();
-  } catch (cause) {
-    mcpTokensError.value = cause instanceof Error ? cause.message : "签发访问令牌失败";
-  } finally {
-    saving.value = false;
-  }
-};
-const revokeMcpToken = async (token) => {
-  if (saving.value || !window.confirm(`吊销「${token.name}」后，使用它的 AI 工具将立即无法调用。确认吊销？`)) return;
-  saving.value = true;
-  mcpTokensError.value = "";
-  try {
-    await controlApi.revokeMcpToken(token.id);
-    mcpTokens.value = await controlApi.listMcpTokens();
-    emit("toast", "访问令牌已吊销");
-  } catch (cause) {
-    mcpTokensError.value = cause instanceof Error ? cause.message : "吊销访问令牌失败";
-  } finally {
-    saving.value = false;
-  }
-};
-const copyText = async (value, message) => {
-  try {
-    await navigator.clipboard.writeText(value);
-    emit("toast", message);
-  } catch {
-    emit("toast", "复制失败，请手动选择文本");
-  }
-};
 
 const saveOrganization = async () => {
   saving.value = true;
@@ -281,19 +221,6 @@ const saveMember = async () => {
         <section class="plan-hero"><div><span class="page-overline">CURRENT PLAN</span><h2>{{ billing.plan || '未配置套餐' }}</h2><p>套餐名称来自组织资料；额度与用量来自模型网关，不代表已付款。</p><div class="plan-tags"><span>API 额度按实际消耗结算</span><span>管理员赠送额度单独留痕</span></div></div><aside><span>组织 API 余额（人民币等值）</span><strong>{{ formatYuan(billing.usage.remainingYuan) }}</strong><small>Control 固定按 1 美元 = 7.3 元折算；网关仍以美元计费</small><button class="button secondary" :disabled="billingLoading" @click="loadBilling">刷新记录</button></aside></section>
         <section class="metric-grid compact"><MetricCard label="累计分配" :value="formatYuan(billing.usage.budgetYuan)" detail="网关累计额度 · 人民币等值" icon="usage" tone="mint" /><MetricCard label="已使用" :value="formatYuan(billing.usage.usedYuan)" :detail="formatUsagePercent(billing.usage.usedQuota, billing.usage.budgetQuota)" icon="tasks" tone="blue" /><MetricCard label="剩余" :value="formatYuan(billing.usage.remainingYuan)" detail="当前可用额度 · 人民币等值" icon="check" tone="violet" /></section>
         <div class="billing-columns"><section class="content-panel"><div class="section-heading"><div><h2>额度账单</h2><p>每次管理员赠送额度（包括首次赠送）都有独立记录；人民币按固定汇率折算，不是客户付款或税务发票。</p></div></div><div class="data-table invoice-table credit-grant-table"><div class="table-head"><span>发放时间</span><span>类型</span><span>金额（人民币等值）</span><span>状态</span></div><div v-for="grant in billing.creditGrants" :key="grant.id" class="table-row"><strong>{{ formatDate(grant.createdAt) }}</strong><span>管理员赠送额度<small>记录号 {{ grant.id }}</small></span><span>{{ formatYuan(grant.amountYuan) }}</span><StatusBadge label="已到账" /></div></div><p v-if="!billing.creditGrants.length" class="billing-empty">暂无额度账单记录。</p></section><section class="content-panel billing-contact"><h2>付费账单与发票</h2><p>当前未接入收款与开票系统；赠送额度无需付款，也不会生成发票。</p><div class="contact-row"><span>财</span><div><strong>账单联系邮箱</strong><small>{{ organization.billingEmail || '尚未填写' }}</small></div></div><button class="button secondary" @click="navigate('/settings/organization')">更新联系方式</button></section></div>
-      </template>
-    </template>
-
-    <template v-else-if="section === 'mcp-tokens'">
-      <section v-if="!canManageMcpTokens" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>仅应用运营管理员可签发</strong><p>MCP 访问令牌代表你本人调用应用发布能力，需要当前组织的应用运营管理员角色。</p></div></section>
-      <template v-else>
-        <section class="security-callout"><AppIcon name="key" :size="22" /><div><strong>在 AI 工具中配置两项环境变量</strong><p><code>HUB_MCP_URL={{ mcpEndpoint }}</code> 与 <code>HUB_MCP_BEARER_TOKEN</code>。令牌代表你本人，权限与应用发布页一致；角色被撤销或令牌吊销后立即失效。令牌只在签发时显示一次。</p></div></section>
-        <section v-if="createdMcpToken" class="content-panel key-secret-panel"><div class="section-heading"><div><h2>请立即保存新令牌</h2><p>关闭后不会再次显示。不要把令牌提交到代码库或发送给他人。</p></div><button class="icon-button" aria-label="关闭令牌展示" @click="createdMcpToken = null"><AppIcon name="close" :size="16" /></button></div><div class="key-secret-row"><code>{{ createdMcpToken.secret }}</code><button class="button secondary" @click="copyText(createdMcpToken.secret, '令牌已复制')"><AppIcon name="copy" :size="15" />复制令牌</button></div><p>{{ createdMcpToken.expiresAt ? `有效至 ${formatDate(createdMcpToken.expiresAt)}` : '不过期，可随时吊销' }}</p></section>
-        <section class="content-panel"><div class="section-heading"><div><h2>签发新令牌</h2><p>按用途命名，便于日后识别与吊销。</p></div></div><div class="two-column-form"><label class="form-field"><span>用途名称</span><input v-model.trim="mcpTokenDraft.name" maxlength="50" placeholder="例如：Claude Code 应用发布" /></label><label class="form-field"><span>有效期</span><select v-model="mcpTokenDraft.expiresInDays"><option :value="30">30 天</option><option :value="90">90 天</option><option :value="180">180 天</option><option :value="365">365 天</option><option :value="0">不过期</option></select></label></div><footer><button class="button primary" :disabled="saving || mcpTokenDraft.name.trim().length < 2" @click="createMcpToken">{{ saving ? '正在签发…' : '签发令牌' }}</button></footer></section>
-        <section v-if="mcpTokensError" class="ops-note"><AppIcon name="warning" :size="19" /><div><strong>访问令牌操作失败</strong><p>{{ mcpTokensError }}</p></div><button class="button secondary" @click="loadMcpTokens">重新加载</button></section>
-        <p v-if="mcpTokensLoading">正在加载访问令牌…</p>
-        <div class="data-table keys-table"><div class="table-head"><span>名称</span><span>令牌</span><span>有效期</span><span>创建时间</span><span>最近使用</span><span>状态</span><span>操作</span></div><div v-for="token in mcpTokens" :key="token.id" class="table-row"><strong>{{ token.name }}</strong><code>{{ token.prefix }}</code><span>{{ token.expiresAt ? formatDate(token.expiresAt) : '不过期' }}</span><span>{{ formatDate(token.createdAt) }}</span><span>{{ token.lastUsedAt ? formatDate(token.lastUsedAt) : '—' }}</span><StatusBadge :label="token.status" /><button v-if="token.status === '有效'" class="table-action danger" :aria-label="`吊销 ${token.name}`" :disabled="saving" @click="revokeMcpToken(token)">吊销<AppIcon name="arrow" :size="15" /></button><span v-else class="table-action-unavailable">—</span></div></div>
-        <p v-if="!mcpTokensLoading && !mcpTokensError && !mcpTokens.length" class="billing-empty">尚未签发访问令牌。</p>
       </template>
     </template>
 

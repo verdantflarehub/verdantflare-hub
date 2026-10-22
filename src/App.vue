@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import { controlApi, getCenterContext } from "./api/control";
 import AppIcon from "./components/AppIcon.vue";
 import SideNav from "./components/SideNav.vue";
-import { currentPath, currentSearch, navigate } from "./router";
+import { currentPath, currentSearch, navigate, replace } from "./router";
 import ApiView from "./views/ApiView.vue";
 import ExperienceView from "./views/ExperienceView.vue";
 import GuestHubView from "./views/GuestHubView.vue";
@@ -40,6 +40,9 @@ const activeOrganization = computed(() => {
 const canManageApps = computed(() => activeOrganization.value?.roles?.includes("app_ops_admin") || false);
 const canManageModels = computed(() => activeOrganization.value?.roles?.includes("api_ops_admin") || false);
 const canManageOrganizations = computed(() => activeOrganization.value?.roles?.includes("customer_success_admin") || false);
+watch([currentPath, canManageApps], ([path, allowed]) => {
+  if (path === "/settings/mcp-tokens" && allowed) replace("/ops/apps?tokens=1");
+}, { immediate: true });
 const publicSurveyId = computed(() => /^\/surveys\/(yunnan-202610|survey-[0-9a-f]{32})$/.exec(currentPath.value)?.[1] || "");
 const publicSurvey = computed(() => Boolean(publicSurveyId.value));
 

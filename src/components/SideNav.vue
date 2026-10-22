@@ -34,7 +34,6 @@ const groups = computed(() => [
     { label: "组织信息", icon: "organization", href: "/settings/organization" },
     { label: "成员与角色", icon: "members", href: "/settings/members" },
     { label: "套餐与账单", icon: "billing", href: "/settings/billing" },
-    props.canManageApps && { label: "MCP 访问令牌", icon: "key", href: "/settings/mcp-tokens" },
   ].filter(Boolean) },
 ]);
 const opsItems = computed(() => [

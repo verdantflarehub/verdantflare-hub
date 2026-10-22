@@ -344,6 +344,22 @@ const revokeGrant = async (grant) => {
   }
 };
 
+const retireFromList = async () => {
+  if (saving.value || record.value?.app.enabled || !record.value?.app.publishedVersion) return;
+  if (!window.confirm("将已停用应用移出当前发布列表？历史版本与发行记录仍可按应用 ID 回读。")) return;
+  saving.value = true;
+  error.value = "";
+  try {
+    await controlApi.patchManagedAppV2(appId.value, { visibility: "hidden", publicVisible: false }, record.value.app.revision);
+    emit("toast", "应用已移出当前发布列表，历史记录已保留");
+    navigate("/ops/apps");
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : "移出当前列表失败";
+  } finally {
+    saving.value = false;
+  }
+};
+
 const save = async (channel = form.value.channel) => {
   if (saving.value) return;
   if (channel === "Listed" && (listingMissing.value.length || listingInvalid.value.length || form.value.version)) {
@@ -404,14 +420,14 @@ const save = async (channel = form.value.channel) => {
       <section class="detail-command-bar internal-detail">
         <div class="app-large-icon" :class="record.app.tone"><BrandAppIcon :icon-url="form.publicIconUrl || record.app.publicIconUrl" :icon-ref="form.iconRef || record.app.iconRef" :brand="form.brand || record.app.brand" :fallback-icon="record.app.icon || 'market'" :size="31" /></div>
         <div class="detail-title-copy"><span class="page-overline internal-overline">APP RELEASE</span><h1>{{ record.app.name }} · {{ record.app.publishedVersion || record.app.version || '版本待登记' }}</h1><p>应用 ID：<code>{{ record.app.id }}</code> · 修订 <code>rev {{ record.app.revision || 1 }}</code> · 已授权 {{ record.release.audience }}</p></div>
-        <div class="detail-command-actions"><StatusBadge :label="record.app.channel === 'Preview' ? '目录预览' : record.release.status" /><a class="button secondary" :href="controlApi.opsAppsYamlUrl()" target="_blank" rel="noopener noreferrer">查看 apps.yaml</a><button v-if="record.app.channel === 'Listed' || record.app.publicVisible" class="button secondary" @click="navigate(`/market/apps/${encodeURIComponent(appId)}`)">查看已上架详情</button><button class="button secondary" :disabled="saving" @click="save()">保存资料</button><button v-if="record.app.channel === 'Candidate'" class="button primary" :disabled="saving || !canList" @click="save('Listed')">仅上架 Hub 资料</button></div>
+        <div class="detail-command-actions"><StatusBadge :label="record.release.status" /><a class="button secondary" :href="controlApi.opsAppsYamlUrl()" target="_blank" rel="noopener noreferrer">查看 apps.yaml</a><button v-if="record.app.enabled && (record.app.channel === 'Listed' || record.app.publicVisible)" class="button secondary" @click="navigate(`/market/apps/${encodeURIComponent(appId)}`)">查看已上架详情</button><button v-if="!record.app.enabled && record.app.publishedVersion && record.app.visibility !== 'hidden'" class="button secondary" :disabled="saving" @click="retireFromList">移出当前列表</button><button class="button secondary" :disabled="saving" @click="save()">保存资料</button><button v-if="record.app.channel === 'Candidate'" class="button primary" :disabled="saving || !canList" @click="save('Listed')">仅上架 Hub 资料</button></div>
       </section>
 
       <nav class="release-section-nav" aria-label="应用发布页内导航"><a href="#release-basics">应用资料</a><a href="#release-chart">Chart 预检</a><a href="#release-oci-versions">OCI 版本与发布</a><a href="#release-channel">发布通道</a></nav>
 
       <section class="content-panel release-readiness-panel">
         <div class="section-heading"><div><h2>发布检查</h2><p>目录展示、Chart 预检与 OCI 版本发布分别校验；选中发布版本后自动同步至 Station 可拉取的 apps.yaml。</p></div></div>
-        <div class="readiness-grid"><div><strong>01 · 资料上架</strong><p>{{ listingMissing.length || listingInvalid.length ? `还需处理：${[...listingMissing, ...listingInvalid].join('、')}` : '展示必填项已齐；可上架资料。' }}</p></div><div><strong>02 · Chart 预检</strong><p>{{ chartAudit ? (chartAudit.staticChecksPassed ? '本次上传的静态规则通过；可将摘要填入下方 OCI 登记。' : '本次上传存在阻断项；请查看报告。') : '可选上传本地 .tgz 归档快速预检结构与摘要。' }}</p></div><div><strong>03 · OCI 版本发布</strong><p>{{ record.app.publishedVersion ? `当前已发布 Chart OCI 版本 ${record.app.publishedVersion}（可安装分发已启用）。` : (ociVersions.length ? `已登记 ${ociVersions.length} 个可信 OCI 版本，可随时选定发布。` : '尚未登记 OCI Chart 版本；当前仅可作为目录展示。') }}</p></div></div>
+        <div class="readiness-grid"><div><strong>01 · 资料上架</strong><p>{{ listingMissing.length || listingInvalid.length ? `还需处理：${[...listingMissing, ...listingInvalid].join('、')}` : '展示必填项已齐；可上架资料。' }}</p></div><div><strong>02 · Chart 预检</strong><p>{{ chartAudit ? (chartAudit.staticChecksPassed ? '本次上传的静态规则通过；可将摘要填入下方 OCI 登记。' : '本次上传存在阻断项；请查看报告。') : '可选上传本地 .tgz 归档快速预检结构与摘要。' }}</p></div><div><strong>03 · OCI 版本发布</strong><p>{{ record.app.publishedVersion ? (record.app.enabled ? `当前已发布 Chart OCI 版本 ${record.app.publishedVersion}（可安装分发已启用）。` : `已登记 Chart OCI 版本 ${record.app.publishedVersion}，当前停用，Station 不再分发。`) : (ociVersions.length ? `已登记 ${ociVersions.length} 个可信 OCI 版本，可随时选定发布。` : '尚未登记 OCI Chart 版本；当前仅可作为目录展示。') }}</p></div></div>
       </section>
 
       <section id="release-basics" class="content-panel manifest-panel release-section" tabindex="-1" aria-label="应用目录资料">
@@ -454,11 +470,11 @@ const save = async (channel = form.value.channel) => {
             <h2>第三步 · Chart OCI 版本登记与发布</h2>
             <p>向 Control 登记已推送到受控 OCI Registry 的 Helm Chart 版本，自动验签并提取镜像、模型、能力、Logo 与兼容性，支持一键切换或撤回发布指针。</p>
           </div>
-          <span class="candidate-internal-tag">{{ record.app.publishedVersion ? `已发布 ${record.app.publishedVersion}` : '未发布可安装版本' }}</span>
+          <span class="candidate-internal-tag">{{ record.app.publishedVersion ? `${record.app.enabled ? '已发布' : '已停用'} ${record.app.publishedVersion}` : '未发布可安装版本' }}</span>
         </div>
 
         <div v-if="record.app.publishedVersion" class="detail-command-actions">
-          <span>当前线上发布版本：<strong>{{ record.app.publishedVersion }}</strong>（已启用 Station <code>apps.yaml</code> 分发）</span>
+          <span>当前登记版本：<strong>{{ record.app.publishedVersion }}</strong>（{{ record.app.enabled ? 'Station apps.yaml 正在分发' : '已停用，Station 不再分发' }}）</span>
           <button class="button secondary" :disabled="releaseSelecting" @click="selectReleaseVersion(null)">{{ releaseSelecting ? '正在处理…' : '取消发布（降为仅目录）' }}</button>
         </div>
         <div v-else-if="record.app.disabledReason" class="candidate-help">

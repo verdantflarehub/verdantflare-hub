@@ -1205,6 +1205,9 @@ button { letter-spacing: .005em; }
 .key-probe-result { flex-wrap: wrap; }
 .key-probe-result span { overflow-wrap: anywhere; }
 .key-secret-row code { min-width: 0; }
+.mcp-token-modal { width: min(1040px, 100%); }
+.mcp-token-modal .content-panel { margin-bottom: 16px; }
+.mcp-token-modal .keys-table { overflow-x: auto; }
 .call-guide { margin-bottom: 16px; }
 @media (max-width: 680px) {
   .credit-grant-form, .key-secret-row { align-items: stretch; flex-direction: column; }

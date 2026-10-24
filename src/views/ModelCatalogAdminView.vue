@@ -132,7 +132,7 @@ onMounted(load);
       <div>
         <span class="page-overline internal-overline">MODEL PUBLICATION</span>
         <h1>{{ isDetail ? (isNew ? "新建模型草稿" : draft?.name || "模型配置") : "模型上架" }}</h1>
-        <p v-if="isDetail">模型 ID 必须与 new-api 一致；公开资料、价格和在线体验在此配置。</p>
+        <p v-if="isDetail">模型 ID 必须与 new-api 一致；这里维护公开资料。新模型须经模型上架 MCP 的渠道、计费和真实扣费验证后公开。</p>
         <p v-else>管理列表包含草稿与未列出记录；<span class="keep-phrase">WWW 与 Hub</span> 仅公开已上架且网关列出的模型。公开报价不代表最终结算价格。</p>
       </div>
       <button v-if="isDetail && draft" class="button primary" type="button" :disabled="saving || uploadingIcon || !canSave" @click="save">{{ saving ? "正在保存…" : "保存模型资料" }}</button>
@@ -196,10 +196,10 @@ onMounted(load);
       <section class="content-panel">
         <div class="section-heading"><div><h2>发布与体验</h2><p>上架与体验分别控制；草稿不向 WWW 和 Hub 公开。</p></div></div>
         <div class="two-column-form">
-          <label class="form-field"><span>WWW / Hub 状态</span><select v-model="draft.publicVisible" :disabled="isNew"><option :value="false">草稿，不公开</option><option :value="true" :disabled="gatewayLoading || !!gatewayError || !gatewayModels.includes(draft.id)">上架至 WWW 与 Hub</option></select></label>
+          <label class="form-field"><span>WWW / Hub 状态</span><select v-model="draft.publicVisible" :disabled="isNew"><option :value="false">草稿，不公开</option><option :value="true" :disabled="!draft.publicVisible || gatewayLoading || !!gatewayError || !gatewayModels.includes(draft.id)">已公开（新上架请使用 MCP）</option></select></label>
           <label class="form-field"><span>Hub 在线体验</span><select v-model="draft.experienceMode" :disabled="isNew || !draft.publicVisible || gatewayLoading || !!gatewayError || !gatewayModels.includes(draft.id)"><option value="">关闭体验</option><option value="chat">开放文本对话体验（真实计费）</option></select></label>
         </div>
-        <p class="model-admin-help">仅为支持 OpenAI Chat Completions 的文本模型开启在线体验；每次调用使用组织真实 API 额度。视频和图像模型需独立体验流程。</p>
+        <p class="model-admin-help">这里可保存草稿或将已公开模型下架；从草稿公开必须使用模型上架 MCP 的 publish 工具。仅为支持 OpenAI Chat Completions 的已公开文本模型开启在线体验；每次调用使用组织真实 API 额度。</p>
         <p v-if="draft.id && !gatewayLoading && !gatewayError && !gatewayModels.includes(draft.id)" class="ops-note">该模型未出现在当前网关 Token 的模型列表；上架前请确认渠道、分组与计费配置。</p>
       </section>
       <div class="model-detail-actions"><button class="button secondary" type="button" @click="navigate('/ops/models')">返回列表</button><button class="button primary" type="submit" :disabled="saving || uploadingIcon || !canSave">{{ saving ? "正在保存…" : "保存模型资料" }}</button></div>

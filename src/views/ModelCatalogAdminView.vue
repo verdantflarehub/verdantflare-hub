@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { controlApi } from "../api/control";
 import AppIcon from "../components/AppIcon.vue";
+import McpTokensModal from "../components/McpTokensModal.vue";
 import { navigate } from "../router";
 
 const props = defineProps({ path: { type: String, required: true } });
@@ -20,6 +21,7 @@ const iconFile = ref(null);
 const iconFileInput = ref(null);
 const uploadingIcon = ref(false);
 const iconPreviewFailed = ref(false);
+const showMcpTokens = ref(false);
 watch(() => draft.value?.providerIconUrl, () => { iconPreviewFailed.value = false; });
 
 const routeId = computed(() => {
@@ -134,7 +136,7 @@ onMounted(load);
         <p v-else>管理列表包含草稿与未列出记录；<span class="keep-phrase">WWW 与 Hub</span> 仅公开已上架且网关列出的模型。公开报价不代表最终结算价格。</p>
       </div>
       <button v-if="isDetail && draft" class="button primary" type="button" :disabled="saving || uploadingIcon || !canSave" @click="save">{{ saving ? "正在保存…" : "保存模型资料" }}</button>
-      <button v-else-if="!isDetail" class="button primary" type="button" @click="navigate('/ops/models/new')"><AppIcon name="plus" :size="17" />新建草稿</button>
+      <div v-else-if="!isDetail" class="detail-command-actions"><button class="button secondary" type="button" @click="showMcpTokens = true"><AppIcon name="key" :size="16" />MCP 访问令牌</button><button class="button primary" type="button" @click="navigate('/ops/models/new')"><AppIcon name="plus" :size="17" />新建草稿</button></div>
     </header>
 
     <section v-if="error" class="ops-note" role="alert"><AppIcon name="warning" :size="19" /><div><strong>操作未完成</strong><p>{{ error }}</p></div><button class="button secondary" type="button" @click="load">重新加载</button></section>
@@ -203,5 +205,6 @@ onMounted(load);
       <div class="model-detail-actions"><button class="button secondary" type="button" @click="navigate('/ops/models')">返回列表</button><button class="button primary" type="submit" :disabled="saving || uploadingIcon || !canSave">{{ saving ? "正在保存…" : "保存模型资料" }}</button></div>
     </form>
     <p v-else-if="isDetail && loading">正在读取模型资料…</p>
+    <McpTokensModal v-model="showMcpTokens" purpose="model_publish" @toast="(message) => emit('toast', message)" />
   </div>
 </template>

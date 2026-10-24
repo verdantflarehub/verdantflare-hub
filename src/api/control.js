@@ -63,7 +63,7 @@ export const controlApi = {
   inviteMember: (payload) => request("/settings/members", { method: "POST", body: JSON.stringify(payload) }),
   updateMember: (id, payload) => request(`/settings/members/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload) }),
   getBilling: () => request("/settings/billing"),
-  listMcpTokens: () => request("/settings/mcp-tokens"),
+  listMcpTokens: (purpose = "app_publish") => request(`/settings/mcp-tokens?purpose=${encodeURIComponent(purpose)}`),
   createMcpToken: (payload) => request("/settings/mcp-tokens", { method: "POST", body: JSON.stringify(payload) }),
   revokeMcpToken: (id) => request(`/settings/mcp-tokens/${encodeURIComponent(id)}`, { method: "DELETE" }),
   listReleases: () => request("/ops/releases"),

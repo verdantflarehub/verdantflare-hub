@@ -10,6 +10,7 @@ const props = defineProps({
   activeOrganization: { type: Object, required: true },
   canManageApps: { type: Boolean, default: false },
   canManageModels: { type: Boolean, default: false },
+  canManageSkills: { type: Boolean, default: false },
   canManageOrganizations: { type: Boolean, default: false },
 });
 const emit = defineEmits(["organization-change"]);
@@ -22,6 +23,7 @@ const groups = computed(() => [
     { label: "工作台", icon: "overview", href: "/", exact: true },
     { label: "模型市场", icon: "models", href: "/api/models" },
     { label: "应用市场", icon: "market", href: "/market" },
+    { label: "技能市场", icon: "playground", href: "/skills" },
     { label: "模型体验", icon: "experience", href: "/experience" },
   ] },
   { label: "API CENTER", items: [
@@ -39,6 +41,7 @@ const groups = computed(() => [
 const opsItems = computed(() => [
   props.canManageModels && { label: "模型上架", icon: "models", href: "/ops/models" },
   props.canManageApps && { label: "应用发布", icon: "release", href: "/ops/apps" },
+  props.canManageSkills && { label: "技能目录", icon: "playground", href: "/ops/skills" },
   props.canManageOrganizations && { label: "客户组织", icon: "clients", href: "/ops/organizations" },
   props.canManageOrganizations && props.activeOrganization.organizationId === "org_verdantflare" && { label: "交流问卷", icon: "usage", href: "/ops/surveys" },
 ].filter(Boolean));

@@ -14,14 +14,21 @@ const emit = defineEmits(["retry-context"]);
 
 const models = ref([]);
 const apps = ref([]);
+const skills = ref([]);
 const loading = ref(true);
 const error = ref("");
-const section = computed(() => props.path.startsWith("/api/models") ? "models" : props.path.startsWith("/market") ? "apps" : "overview");
-const title = computed(() => ({ overview: "探索 VerdantFlare", models: "模型目录", apps: "应用市场" })[section.value]);
+const section = computed(() => props.path.startsWith("/api/models") ? "models" : props.path.startsWith("/market") ? "apps" : props.path.startsWith("/skills") ? "skills" : "overview");
+const title = computed(() => ({ overview: "探索 VerdantFlare", models: "模型目录", apps: "应用市场", skills: "技能市场" })[section.value]);
 const modelId = computed(() => props.path.startsWith("/api/models/") ? props.path.slice("/api/models/".length) : "");
 const appId = computed(() => props.path.startsWith("/market/apps/") ? props.path.slice("/market/apps/".length) : "");
+const skillId = computed(() => {
+  if (!props.path.startsWith("/skills/")) return "";
+  try { return decodeURIComponent(props.path.slice("/skills/".length)); }
+  catch { return ""; }
+});
 const selectedModel = computed(() => models.value.find((model) => model.id === modelId.value));
 const selectedApp = computed(() => apps.value.find((app) => app.id === resolvedMarketAppId(appId.value, apps.value)));
+const selectedSkill = computed(() => skills.value.find((skill) => skill.entryId === skillId.value));
 watch([appId, selectedApp], ([id, app]) => {
   if (id && app?.id !== id) replace(`/market/apps/${app.id}${window.location.search}${window.location.hash}`);
 });
@@ -30,6 +37,12 @@ const loadCatalog = async () => {
   loading.value = true;
   error.value = "";
   try {
+    if (section.value === "skills") {
+      const result = await controlApi.listSkills();
+      if (!Array.isArray(result?.items)) throw new Error("技能目录响应格式不正确");
+      skills.value = result.items;
+      return;
+    }
     const catalog = await controlApi.getGuestCatalog();
     if (!Array.isArray(catalog?.models) || !Array.isArray(catalog?.apps)) throw new Error("待开通目录响应格式不正确");
     models.value = catalog.models;
@@ -37,6 +50,7 @@ const loadCatalog = async () => {
   } catch (cause) {
     models.value = [];
     apps.value = [];
+    skills.value = [];
     error.value = cause instanceof Error ? cause.message : "公开目录加载失败";
   } finally {
     loading.value = false;
@@ -44,6 +58,7 @@ const loadCatalog = async () => {
 };
 
 onMounted(loadCatalog);
+watch(section, loadCatalog);
 </script>
 
 <template>
@@ -57,6 +72,7 @@ onMounted(loadCatalog);
         <button type="button" :aria-current="section === 'overview' ? 'page' : undefined" @click="navigate('/')">概览</button>
         <button type="button" :aria-current="section === 'models' ? 'page' : undefined" @click="navigate('/api/models')">模型市场</button>
         <button type="button" :aria-current="section === 'apps' ? 'page' : undefined" @click="navigate('/market')">应用市场</button>
+        <button type="button" :aria-current="section === 'skills' ? 'page' : undefined" @click="navigate('/skills')">技能市场</button>
       </nav>
       <div class="guest-account"><span class="guest-badge"><i />待开通</span><a :href="logoutUrl">退出登录</a></div>
     </header>
@@ -66,10 +82,11 @@ onMounted(loadCatalog);
         <div class="guest-hero-copy">
           <span class="guest-eyebrow">VERDANTFLARE / DISCOVER</span>
           <h1>{{ title }}<span class="guest-title-dot">.</span></h1>
-          <p>你已完成登录，可以查看模型与已收录应用的资料。加入组织后，可按权限使用已开放的模型体验、API Key 与组织工作台。</p>
+          <p>你已完成登录，可以查看模型、应用与技能目录资料。加入组织后，可按权限使用已开放的模型体验、API Key 与组织工作台。</p>
           <div class="guest-actions">
             <button v-if="section !== 'models'" class="button primary" type="button" @click="navigate('/api/models')"><AppIcon name="models" :size="17" />探索模型</button>
             <button v-if="section !== 'apps'" class="button secondary" type="button" @click="navigate('/market')"><AppIcon name="market" :size="17" />浏览应用</button>
+            <button v-if="section !== 'skills'" class="button secondary" type="button" @click="navigate('/skills')"><AppIcon name="playground" :size="17" />浏览技能</button>
             <button class="button secondary" type="button" @click="emit('retry-context')"><AppIcon name="check" :size="17" />检查组织权限</button>
           </div>
         </div>
@@ -78,15 +95,15 @@ onMounted(loadCatalog);
 
       <section class="guest-access-note">
         <AppIcon name="organization" :size="20" />
-        <div><strong>账号待开通 · 可浏览目录</strong><p>模型与应用资料可浏览；调用、体验和组织功能须在加入组织后按权限开放。请联系组织管理员分配组织，完成后点击“检查组织权限”。</p></div>
+        <div><strong>账号待开通 · 可浏览目录</strong><p>模型、应用与已列出的技能资料可浏览；下载、调用、体验和组织功能须按各自真实条件开放。请联系组织管理员分配组织，完成后点击“检查组织权限”。</p></div>
       </section>
 
       <section v-if="loading" class="guest-feedback" aria-live="polite"><div class="loading-ring" /><strong>正在读取目录</strong></section>
       <section v-else-if="error" class="guest-feedback" role="alert"><AppIcon name="warning" :size="25" /><strong>目录暂时无法加载</strong><p>{{ error }}</p><button class="button secondary" type="button" @click="loadCatalog">重试目录</button></section>
 
       <template v-else>
-        <section v-if="modelId || appId" class="guest-catalog guest-detail">
-          <button class="button secondary" type="button" @click="navigate(modelId ? '/api/models' : '/market')">返回{{ modelId ? '模型' : '应用' }}目录</button>
+        <section v-if="modelId || appId || skillId" class="guest-catalog guest-detail">
+          <button class="button secondary" type="button" @click="navigate(modelId ? '/api/models' : appId ? '/market' : '/skills')">返回{{ modelId ? '模型' : appId ? '应用' : '技能' }}目录</button>
           <div v-if="modelId && selectedModel" class="guest-detail-panel">
             <span class="guest-eyebrow">MODEL / {{ selectedModel.provider }}</span><h2>{{ selectedModel.name }}</h2><p>{{ selectedModel.summary }}</p>
             <div class="guest-detail-tags"><span v-for="tag in selectedModel.categories || []" :key="tag">{{ tag }}</span></div>
@@ -100,9 +117,16 @@ onMounted(loadCatalog);
             <ul v-if="selectedApp.showcase?.highlights?.length"><li v-for="highlight in selectedApp.showcase.highlights" :key="highlight">{{ highlight }}</li></ul>
             <p class="guest-detail-note">仅供了解。加入组织后的实际权益与 Station 可安装状态需另行核验。</p>
           </div>
+          <div v-else-if="skillId && selectedSkill" class="guest-detail-panel">
+            <span class="guest-eyebrow">SKILL / {{ selectedSkill.kind === 'bundle' ? '能力组合' : '单技能' }}</span><h2>{{ selectedSkill.name }}</h2><p>{{ selectedSkill.description || selectedSkill.summary }}</p>
+            <div class="guest-detail-tags"><span>{{ selectedSkill.category }}</span><span>尚不可下载</span></div>
+            <div v-if="selectedSkill.kind === 'bundle' && selectedSkill.previewSkillIds?.length" class="guest-detail-tags"><span v-for="id in selectedSkill.previewSkillIds" :key="id">{{ id }}</span></div>
+            <dl><div><dt>目录 ID</dt><dd>{{ selectedSkill.entryId }}</dd></div><div><dt>分发状态</dt><dd>尚不可下载</dd></div></dl>
+            <p class="guest-detail-note">这里只展示公开介绍；组合成员仅为预览，不是可安装依赖清单。尚无经过验收的固定技能包，不提供下载、安装或连接。</p>
+          </div>
           <div v-else class="guest-feedback"><strong>目录中找不到该资料</strong><p>这条记录可能已下架或不再对待开通账号展示。</p></div>
         </section>
-        <section v-if="!modelId && !appId && section !== 'apps'" class="guest-catalog" aria-labelledby="guest-model-heading">
+        <section v-if="!modelId && !appId && !skillId && section !== 'apps' && section !== 'skills'" class="guest-catalog" aria-labelledby="guest-model-heading">
           <div class="guest-section-heading"><div><span>MODEL MARKET</span><h2 id="guest-model-heading">公开模型</h2><p>来自已公开的 Control 目录，不包含调用额度或实时可用性。</p></div><strong>{{ models.length }} 个模型</strong></div>
           <div v-if="models.length" class="catalog-card-grid">
             <CatalogCard v-for="model in models" :key="model.id" :title="model.name" :meta="`${model.provider} · ${model.id}`" :description="model.summary" icon="models" :icon-url="model.providerIconUrl" :tags="[...(model.categories || []), ...(model.context ? [`上下文 ${model.context}`] : [])]" status="仅供浏览" :actions="[{ label: '查看资料', to: `/api/models/${encodeURIComponent(model.id)}` }]" />
@@ -110,12 +134,17 @@ onMounted(loadCatalog);
           <div v-else class="guest-empty"><AppIcon name="models" :size="25" /><strong>暂无公开模型</strong><p>管理员发布后，这里会自动显示真实目录记录。</p></div>
         </section>
 
-        <section v-if="!modelId && !appId && section !== 'models'" class="guest-catalog" aria-labelledby="guest-app-heading">
+        <section v-if="!modelId && !appId && !skillId && section !== 'models' && section !== 'skills'" class="guest-catalog" aria-labelledby="guest-app-heading">
           <div class="guest-section-heading"><div><span>APP MARKET</span><h2 id="guest-app-heading">已收录应用</h2><p>浏览 Hub 已上架资料；是否可安装和运行，须由当前 Station 在 Studio 中核验。</p></div><strong>{{ apps.length }} 个应用</strong></div>
           <div v-if="apps.length" class="catalog-card-grid">
             <CatalogCard v-for="app in apps" :key="app.id" :title="app.name" :meta="[app.developer || app.category, app.version ? `v${app.version}` : '资料已收录'].join(' · ')" :description="app.summary" icon="market" :icon-url="app.iconUrl" :icon-ref="app.iconRef || ''" :brand="app.brand || ''" :tags="[app.category, app.channel === 'Listed' ? '资料已收录' : '目录版本已发布'].filter(Boolean)" status="仅供浏览" :actions="[{ label: '查看资料', to: `/market/apps/${encodeURIComponent(app.id)}` }]" />
           </div>
           <div v-else class="guest-empty"><AppIcon name="market" :size="25" /><strong>暂无已收录应用</strong><p>管理员上架后，这里会自动显示真实目录记录。</p></div>
+        </section>
+        <section v-if="!skillId && section === 'skills'" class="guest-catalog" aria-labelledby="guest-skill-heading">
+          <div class="guest-section-heading"><div><span>SKILL MARKET</span><h2 id="guest-skill-heading">公开技能资料</h2><p>能力组合优先；目录收录不代表已可下载或连接。</p></div><strong>{{ skills.length }} 条资料</strong></div>
+          <div v-if="skills.length" class="catalog-card-grid"><CatalogCard v-for="skill in skills" :key="skill.entryId" :title="skill.name" :meta="`${skill.kind === 'bundle' ? '能力组合' : '单技能'} · ${skill.entryId}`" :description="skill.summary" icon="playground" :tags="[skill.category, '仅供浏览']" status="尚不可下载" :actions="[{ label: '查看资料', to: `/skills/${encodeURIComponent(skill.entryId)}` }]" /></div>
+          <div v-else class="guest-empty"><AppIcon name="playground" :size="25" /><strong>暂无公开技能资料</strong><p>运营人员列出条目后，这里会自动显示真实目录记录。</p></div>
         </section>
       </template>
     </main>

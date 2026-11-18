@@ -8,6 +8,8 @@ import ApiView from "./views/ApiView.vue";
 import ExperienceView from "./views/ExperienceView.vue";
 import GuestHubView from "./views/GuestHubView.vue";
 import MarketView from "./views/MarketView.vue";
+import SkillMarketView from "./views/SkillMarketView.vue";
+import SkillCatalogAdminView from "./views/SkillCatalogAdminView.vue";
 import NotFoundView from "./views/NotFoundView.vue";
 import OrganizationDetailView from "./views/OrganizationDetailView.vue";
 import OperationsView from "./views/OperationsView.vue";
@@ -40,6 +42,7 @@ const activeOrganization = computed(() => {
 const canManageApps = computed(() => activeOrganization.value?.roles?.includes("app_ops_admin") || false);
 const canManageModels = computed(() => activeOrganization.value?.roles?.includes("api_ops_admin") || false);
 const canManageOrganizations = computed(() => activeOrganization.value?.roles?.includes("customer_success_admin") || false);
+const canManageSkills = computed(() => activeOrganization.value?.roles?.includes("skill_ops_admin") || false);
 watch([currentPath, canManageApps], ([path, allowed]) => {
   if (path === "/settings/mcp-tokens" && allowed) replace("/ops/apps?tokens=1");
 }, { immediate: true });
@@ -54,9 +57,11 @@ const route = computed(() => {
   }
   if (path === "/") return { component: OverviewView, area: "overview" };
   if (path === "/market" || path.startsWith("/market/apps/")) return { component: MarketView, area: "market" };
+  if (path === "/skills" || path.startsWith("/skills/")) return { component: SkillMarketView, area: "market" };
   if (path.startsWith("/experience/sessions/")) return { component: SessionDetailView, area: "experience" };
   if (path === "/experience") return { component: ExperienceView, area: "experience" };
   if ((path === "/ops/models" || path.startsWith("/ops/models/")) && canManageModels.value) return { component: ModelCatalogAdminView, area: "operations" };
+  if (path === "/ops/skills" && canManageSkills.value) return { component: SkillCatalogAdminView, area: "operations" };
   if (path.startsWith("/api/")) return { component: ApiView, area: "api" };
   if (path.startsWith("/settings/")) return { component: SettingsView, area: "settings" };
   if (path.startsWith("/ops/apps/") && path.endsWith("/releases") && canManageApps.value) return { component: ReleaseDetailView, area: "operations" };
@@ -149,6 +154,7 @@ watch(publicSurvey, (isPublic) => { if (!isPublic) loadContext(); }, { immediate
     <SideNav
       :can-manage-apps="canManageApps"
       :can-manage-models="canManageModels"
+      :can-manage-skills="canManageSkills"
       :can-manage-organizations="canManageOrganizations"
       :context="context"
       :active-organization="activeOrganization"
@@ -163,7 +169,7 @@ watch(publicSurvey, (isPublic) => { if (!isPublic) loadContext(); }, { immediate
           :query="currentSearch"
           :organization="activeOrganization"
           :organizations="context.organizations"
-          :internal="canManageApps || canManageOrganizations"
+          :internal="canManageApps || canManageOrganizations || canManageSkills"
           @toast="showToast"
           @context-change="refreshContext"
           @switch-organization="(id) => changeOrganization(id, true)"

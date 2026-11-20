@@ -119,10 +119,10 @@ watch(section, loadCatalog);
           </div>
           <div v-else-if="skillId && selectedSkill" class="guest-detail-panel">
             <span class="guest-eyebrow">SKILL / {{ selectedSkill.kind === 'bundle' ? '能力组合' : '单技能' }}</span><h2>{{ selectedSkill.name }}</h2><p>{{ selectedSkill.description || selectedSkill.summary }}</p>
-            <div class="guest-detail-tags"><span>{{ selectedSkill.category }}</span><span>尚不可下载</span></div>
+            <div class="guest-detail-tags"><span>{{ selectedSkill.category }}</span><span v-if="selectedSkill.sample">演示资料</span><span>尚不可下载</span></div>
             <div v-if="selectedSkill.kind === 'bundle' && selectedSkill.previewSkillIds?.length" class="guest-detail-tags"><span v-for="id in selectedSkill.previewSkillIds" :key="id">{{ id }}</span></div>
             <dl><div><dt>目录 ID</dt><dd>{{ selectedSkill.entryId }}</dd></div><div><dt>分发状态</dt><dd>尚不可下载</dd></div></dl>
-            <p class="guest-detail-note">这里只展示公开介绍；组合成员仅为预览，不是可安装依赖清单。尚无经过验收的固定技能包，不提供下载、安装或连接。</p>
+            <p class="guest-detail-note">{{ selectedSkill.sample ? "这是未完成正式资料与制品验收的演示资料。" : "这里只展示公开介绍。" }}组合成员仅为预览，不是可安装依赖清单。尚无经过验收的固定技能包，不提供下载、安装或连接。</p>
           </div>
           <div v-else class="guest-feedback"><strong>目录中找不到该资料</strong><p>这条记录可能已下架或不再对待开通账号展示。</p></div>
         </section>
@@ -143,7 +143,7 @@ watch(section, loadCatalog);
         </section>
         <section v-if="!skillId && section === 'skills'" class="guest-catalog" aria-labelledby="guest-skill-heading">
           <div class="guest-section-heading"><div><span>SKILL MARKET</span><h2 id="guest-skill-heading">公开技能资料</h2><p>能力组合优先；目录收录不代表已可下载或连接。</p></div><strong>{{ skills.length }} 条资料</strong></div>
-          <div v-if="skills.length" class="catalog-card-grid"><CatalogCard v-for="skill in skills" :key="skill.entryId" :title="skill.name" :meta="`${skill.kind === 'bundle' ? '能力组合' : '单技能'} · ${skill.entryId}`" :description="skill.summary" icon="playground" :tags="[skill.category, '仅供浏览']" status="尚不可下载" :actions="[{ label: '查看资料', to: `/skills/${encodeURIComponent(skill.entryId)}` }]" /></div>
+          <div v-if="skills.length" class="catalog-card-grid"><CatalogCard v-for="skill in skills" :key="skill.entryId" :title="skill.name" :meta="`${skill.kind === 'bundle' ? '能力组合' : '单技能'} · ${skill.entryId}`" :description="skill.summary" icon="playground" :tags="[skill.category, skill.sample ? '演示资料' : '仅供浏览']" status="尚不可下载" :actions="[{ label: '查看资料', to: `/skills/${encodeURIComponent(skill.entryId)}` }]" /></div>
           <div v-else class="guest-empty"><AppIcon name="playground" :size="25" /><strong>暂无公开技能资料</strong><p>运营人员列出条目后，这里会自动显示真实目录记录。</p></div>
         </section>
       </template>

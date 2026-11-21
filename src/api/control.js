@@ -43,6 +43,16 @@ export const controlApi = {
   getApp: (id) => request(`/market/apps/${encodeURIComponent(id)}`),
   listSkills: () => request("/market/skills"),
   getSkill: (id) => request(`/market/skills/${encodeURIComponent(id)}`),
+  listCreativeResources: ({ mediaType = "", subjectCategory = "" } = {}) => {
+    const params = new URLSearchParams();
+    if (mediaType && mediaType !== "all") params.set("media_type", mediaType);
+    if (subjectCategory && subjectCategory !== "all") params.set("subject_category", subjectCategory);
+    const qs = params.toString();
+    return request(qs ? `/resources?${qs}` : "/resources");
+  },
+  getCreativeResource: (id) => request(`/resources/${encodeURIComponent(id)}`),
+  withdrawCreativeResource: (id) => request(`/resources/${encodeURIComponent(id)}/withdraw`, { method: "POST" }),
+  creativeResourceImageUrl: (id) => `${controlBase}/resources/${encodeURIComponent(id)}/image`,
   listManagedSkills: () => request("/ops/v2/skills"),
   getManagedSkill: (id) => request(`/ops/v2/skills/${encodeURIComponent(id)}`),
   patchManagedSkill: (id, payload, revision) => request(`/ops/v2/skills/${encodeURIComponent(id)}`, {

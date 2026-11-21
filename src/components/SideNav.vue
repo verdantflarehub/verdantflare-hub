@@ -26,6 +26,10 @@ const groups = computed(() => [
     { label: "技能市场", icon: "playground", href: "/skills" },
     { label: "模型体验", icon: "experience", href: "/experience" },
   ] },
+  { label: "灵感资产", items: [
+    { label: "图片", icon: "market", href: "/prompts/images" },
+    { label: "视频", icon: "tasks", href: "/prompts/videos" },
+  ] },
   { label: "API CENTER", items: [
     { label: "API 密钥", icon: "key", href: "/api/keys" },
     { label: "调用示例", icon: "playground", href: "/api/playground" },

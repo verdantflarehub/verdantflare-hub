@@ -10,6 +10,7 @@ import GuestHubView from "./views/GuestHubView.vue";
 import MarketView from "./views/MarketView.vue";
 import SkillMarketView from "./views/SkillMarketView.vue";
 import SkillCatalogAdminView from "./views/SkillCatalogAdminView.vue";
+import CreativeResourcesView from "./views/CreativeResourcesView.vue";
 import NotFoundView from "./views/NotFoundView.vue";
 import OrganizationDetailView from "./views/OrganizationDetailView.vue";
 import OperationsView from "./views/OperationsView.vue";
@@ -58,6 +59,16 @@ const route = computed(() => {
   if (path === "/") return { component: OverviewView, area: "overview" };
   if (path === "/market" || path.startsWith("/market/apps/")) return { component: MarketView, area: "market" };
   if (path === "/skills" || path.startsWith("/skills/")) return { component: SkillMarketView, area: "market" };
+  if (
+    path === "/prompts/images" ||
+    path.startsWith("/prompts/images/") ||
+    path === "/prompts/videos" ||
+    path.startsWith("/prompts/videos/") ||
+    path === "/resources" ||
+    path.startsWith("/resources/")
+  ) {
+    return { component: CreativeResourcesView, area: "resources" };
+  }
   if (path.startsWith("/experience/sessions/")) return { component: SessionDetailView, area: "experience" };
   if (path === "/experience") return { component: ExperienceView, area: "experience" };
   if ((path === "/ops/models" || path.startsWith("/ops/models/")) && canManageModels.value) return { component: ModelCatalogAdminView, area: "operations" };

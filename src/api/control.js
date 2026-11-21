@@ -51,6 +51,8 @@ export const controlApi = {
     return request(qs ? `/resources?${qs}` : "/resources");
   },
   getCreativeResource: (id) => request(`/resources/${encodeURIComponent(id)}`),
+  deleteCreativeResourceItem: (id, itemId) =>
+    request(`/resources/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}`, { method: "DELETE" }),
   withdrawCreativeResource: (id) => request(`/resources/${encodeURIComponent(id)}/withdraw`, { method: "POST" }),
   creativeResourceImageUrl: (id) => `${controlBase}/resources/${encodeURIComponent(id)}/image`,
   listManagedSkills: () => request("/ops/v2/skills"),

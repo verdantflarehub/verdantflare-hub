@@ -141,8 +141,43 @@ const copyText = async (text, label = "提示词") => {
   }
 };
 
+const deleteCurrentItem = async () => {
+  if (!detail.value || !curItem.value) return;
+  const label = curItem.value.stepLabel || curItem.value.label || `第 ${activeItemIdx.value + 1} 张`;
+  if (!window.confirm(`确认删除当前这一张图（${label}）吗？系列中的其余图片会保留。`)) return;
+  withdrawing.value = true;
+  try {
+    const res = await controlApi.deleteCreativeResourceItem(detail.value.resourceId, curItem.value.itemId);
+    if (res?.withdrawn) {
+      emit("toast", "最后一张图已删除，作品已撤回");
+      navigate(listBasePath.value);
+      return;
+    }
+    if (res?.resource) {
+      detail.value = res.resource;
+      const nextLen = (res.resource.items || []).length;
+      if (activeItemIdx.value >= nextLen) {
+        activeItemIdx.value = Math.max(0, nextLen - 1);
+      }
+      // Keep list cache itemCount in sync
+      const idx = items.value.findIndex((x) => x.resourceId === detail.value.resourceId);
+      if (idx >= 0) {
+        items.value[idx] = { ...items.value[idx], itemCount: Math.max(1, nextLen) };
+      }
+    }
+    emit("toast", "当前图片已删除");
+  } catch (cause) {
+    emit("toast", cause instanceof Error ? cause.message : "删除失败");
+  } finally {
+    withdrawing.value = false;
+  }
+};
+
 const withdraw = async (id) => {
-  if (!window.confirm("确认撤回该作品吗？撤回后将从灵感资产列表中隐藏。")) return;
+  const msg = hasMulti.value
+    ? `确认撤回整组作品（共 ${detailItems.value.length} 张图）吗？如只想删当前这一张，请点「删除当前图」。`
+    : "确认撤回该作品吗？撤回后将从灵感资产列表中隐藏。";
+  if (!window.confirm(msg)) return;
   withdrawing.value = true;
   try {
     await controlApi.withdrawCreativeResource(id);
@@ -318,8 +353,17 @@ onBeforeUnmount(() => {
               </div>
               <div class="action-row">
                 <a class="g-btn" :href="curItem.imageUrl" :download="`${detail.resourceId}.png`">下载原图</a>
+                <button
+                  v-if="hasMulti"
+                  class="g-btn danger"
+                  type="button"
+                  :disabled="withdrawing"
+                  @click="deleteCurrentItem"
+                >
+                  {{ withdrawing ? "处理中…" : "删除当前图" }}
+                </button>
                 <button class="g-btn danger" type="button" :disabled="withdrawing" @click="withdraw(detail.resourceId)">
-                  {{ withdrawing ? "撤回中…" : "撤回作品" }}
+                  {{ withdrawing ? "撤回中…" : (hasMulti ? "撤回整组" : "撤回作品") }}
                 </button>
               </div>
             </div>

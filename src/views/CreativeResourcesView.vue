@@ -302,7 +302,16 @@ onBeforeUnmount(() => {
               <button v-if="hasMulti" class="stage-nav-btn prev" type="button" aria-label="上一张" @click="stepItem(-1)">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
               </button>
-              <a :href="curItem.imageUrl" target="_blank" rel="noreferrer" title="点击新窗口查看原图" class="stage-img-link">
+              <video
+                v-if="detail.mediaType === 'video' && detail.videoUrl"
+                class="stage-single-img"
+                controls
+                playsinline
+                preload="metadata"
+                :poster="withImgParams(curItem.imageUrl, detail.imageSha256, 720)"
+                :src="withImgParams(detail.videoUrl, detail.videoSha256)"
+              />
+              <a v-else :href="curItem.imageUrl" target="_blank" rel="noreferrer" title="点击新窗口查看原图" class="stage-img-link">
                 <img class="stage-single-img" :src="withImgParams(curItem.imageUrl, curItem.imageSha256 || detail.imageSha256)" :alt="detail.title" />
               </a>
               <button v-if="hasMulti" class="stage-nav-btn next" type="button" aria-label="下一张" @click="stepItem(1)">
@@ -384,7 +393,15 @@ onBeforeUnmount(() => {
                 <div class="source-row"><span>时间</span><strong>{{ formatDate(detail.createdAt) }}</strong></div>
               </div>
               <div class="action-row">
-                <a class="g-btn" :href="curItem.imageUrl" :download="`${detail.resourceId}.png`">下载原图</a>
+                <a
+                  v-if="detail.mediaType === 'video' && detail.videoUrl"
+                  class="g-btn"
+                  :href="withImgParams(detail.videoUrl, detail.videoSha256)"
+                  :download="`${detail.resourceId}.mp4`"
+                >
+                  下载原视频
+                </a>
+                <a v-else class="g-btn" :href="curItem.imageUrl" :download="`${detail.resourceId}.png`">下载原图</a>
                 <button
                   v-if="hasMulti"
                   class="g-btn danger"

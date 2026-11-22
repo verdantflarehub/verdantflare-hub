@@ -545,7 +545,6 @@ onBeforeUnmount(() => {
               <img :src="withImgParams(item.imageUrl || controlApi.creativeResourceImageUrl(item.resourceId), item.imageSha256, 480)" :alt="item.title" loading="lazy" decoding="async" />
               <div class="m-top-badges">
                 <span class="kind-badge badge-subj">{{ subjectLabels[item.subjectCategory] || "美女" }}</span>
-                <span v-if="item.verificationStatus === 'unverified'" class="kind-badge badge-unverified">未验证</span>
                 <span v-if="cardBadge(item)" class="kind-badge" :class="cardBadge(item).cls">{{ cardBadge(item).text }}</span>
               </div>
               <div class="m-bottom-overlay">

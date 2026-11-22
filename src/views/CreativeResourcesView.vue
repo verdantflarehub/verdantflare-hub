@@ -101,6 +101,14 @@ const siblingNav = computed(() => {
   };
 });
 
+const withImgParams = (baseUrl, sha256, width = 0) => {
+  const qs = [];
+  if (width > 0) qs.push(`w=${width}`);
+  if (sha256) qs.push(`v=${String(sha256).slice(0, 12)}`);
+  if (!qs.length) return baseUrl;
+  return `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}${qs.join("&")}`;
+};
+
 const cardBadge = (item) => {
   const count = Number(item.itemCount || 1);
   if (item.mediaType === "video") {
@@ -295,7 +303,7 @@ onBeforeUnmount(() => {
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
               </button>
               <a :href="curItem.imageUrl" target="_blank" rel="noreferrer" title="点击新窗口查看原图" class="stage-img-link">
-                <img class="stage-single-img" :src="curItem.imageUrl" :alt="detail.title" />
+                <img class="stage-single-img" :src="withImgParams(curItem.imageUrl, curItem.imageSha256 || detail.imageSha256)" :alt="detail.title" />
               </a>
               <button v-if="hasMulti" class="stage-nav-btn next" type="button" aria-label="下一张" @click="stepItem(1)">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg>
@@ -315,7 +323,7 @@ onBeforeUnmount(() => {
                 :class="{ active: idx === activeItemIdx }"
                 @click="activeItemIdx = idx"
               >
-                <img :src="it.imageUrl" :alt="it.label" loading="lazy" />
+                <img :src="withImgParams(it.imageUrl, it.imageSha256, 240)" :alt="it.label" loading="lazy" />
                 <div class="thumb-meta">
                   <strong>{{ it.stepLabel || it.label }}</strong>
                   <span>{{ postKind === "edit" ? it.label : (it.resolution || it.aspectRatio || it.modelName) }}</span>
@@ -427,7 +435,7 @@ onBeforeUnmount(() => {
             @click="navigate(`${listBasePath}/${encodeURIComponent(item.resourceId)}`)"
           >
             <div class="m-media">
-              <img :src="item.imageUrl || controlApi.creativeResourceImageUrl(item.resourceId)" :alt="item.title" loading="lazy" />
+              <img :src="withImgParams(item.imageUrl || controlApi.creativeResourceImageUrl(item.resourceId), item.imageSha256, 480)" :alt="item.title" loading="lazy" decoding="async" />
               <div class="m-top-badges">
                 <span class="kind-badge badge-subj">{{ subjectLabels[item.subjectCategory] || "美女" }}</span>
                 <span v-if="item.verificationStatus === 'unverified'" class="kind-badge badge-unverified">未验证</span>

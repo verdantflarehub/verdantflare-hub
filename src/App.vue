@@ -25,6 +25,7 @@ import SurveyListView from "./views/SurveyListView.vue";
 import { surveyListPath } from "./api/survey";
 import { theme, toggleTheme } from "./theme";
 import { loginUrl } from "./config/site";
+import AgentHandoffView from "./views/AgentHandoffView.vue";
 
 const logoutUrl = new URL("/logout", loginUrl).toString();
 
@@ -49,6 +50,7 @@ watch([currentPath, canManageApps], ([path, allowed]) => {
 }, { immediate: true });
 const publicSurveyId = computed(() => /^\/surveys\/(yunnan-202610|survey-[0-9a-f]{32})$/.exec(currentPath.value)?.[1] || "");
 const publicSurvey = computed(() => Boolean(publicSurveyId.value));
+const agentHandoffPage = computed(() => currentPath.value === "/agent-handoff");
 
 const route = computed(() => {
   const path = currentPath.value;
@@ -124,7 +126,7 @@ const showToast = (message) => {
   toastTimer = window.setTimeout(() => (toast.value = ""), 2600);
 };
 
-watch(publicSurvey, (isPublic) => { if (!isPublic) loadContext(); }, { immediate: true });
+watch([publicSurvey, agentHandoffPage], ([isPublic, isHandoff]) => { if (!isPublic && !isHandoff) loadContext(); }, { immediate: true });
 </script>
 
 <template>
@@ -141,6 +143,7 @@ watch(publicSurvey, (isPublic) => { if (!isPublic) loadContext(); }, { immediate
     <span>{{ theme === 'dark' ? '浅色' : '深色' }}</span>
   </button>
   <SurveyView v-if="publicSurvey" :key="publicSurveyId" :survey-id="publicSurveyId" />
+  <AgentHandoffView v-else-if="agentHandoffPage" />
   <div v-else-if="loading" class="context-state loading-state">
     <img src="/brand/verdantflare-logo.png" alt="VerdantFlare" />
     <div class="loading-ring" />

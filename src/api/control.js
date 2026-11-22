@@ -51,6 +51,10 @@ export const controlApi = {
     return request(qs ? `/resources?${qs}` : "/resources");
   },
   getCreativeResource: (id) => request(`/resources/${encodeURIComponent(id)}`),
+  updateCreativeResource: (id, payload) =>
+    request(`/resources/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  setCreativeResourceCover: (id, itemId) =>
+    request(`/resources/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}/cover`, { method: "POST" }),
   deleteCreativeResourceItem: (id, itemId) =>
     request(`/resources/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}`, { method: "DELETE" }),
   withdrawCreativeResource: (id) => request(`/resources/${encodeURIComponent(id)}/withdraw`, { method: "POST" }),

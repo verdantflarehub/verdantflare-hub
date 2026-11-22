@@ -16,6 +16,9 @@ const subjectFilter = ref("all");
 const layoutFilter = ref("all");
 const verifyFilter = ref("all");
 const withdrawing = ref(false);
+const savingMeta = ref(false);
+const editingPrompt = ref(false);
+const promptDraft = ref("");
 
 const originLabels = {
   station_generated: "VF Station 实跑",
@@ -90,6 +93,11 @@ const detailItems = computed(() => {
 
 const curItem = computed(() => detailItems.value[activeItemIdx.value] || detailItems.value[0] || null);
 const hasMulti = computed(() => detailItems.value.length > 1);
+const isCurCover = computed(() => {
+  if (!detail.value || !curItem.value) return true;
+  if (curItem.value.itemId === "base") return true;
+  return Boolean(curItem.value.imageSha256 && curItem.value.imageSha256 === detail.value.imageSha256);
+});
 const postKind = computed(() => detail.value?.postKind || "single");
 
 const siblingNav = computed(() => {
@@ -156,6 +164,71 @@ const copyText = async (text, label = "提示词") => {
     emit("toast", `${label}已复制到剪贴板`);
   } catch {
     emit("toast", "复制失败，请手动选中复制");
+  }
+};
+
+const setCurrentAsCover = async () => {
+  if (!detail.value || !curItem.value || isCurCover.value) return;
+  savingMeta.value = true;
+  try {
+    const updated = await controlApi.setCreativeResourceCover(detail.value.resourceId, curItem.value.itemId);
+    if (updated?.resourceId) {
+      detail.value = updated;
+      const idx = items.value.findIndex((x) => x.resourceId === updated.resourceId);
+      if (idx >= 0) {
+        items.value[idx] = { ...items.value[idx], imageSha256: updated.imageSha256, resolution: updated.resolution };
+      }
+    }
+    emit("toast", "已将当前图片设为列表封面");
+  } catch (cause) {
+    emit("toast", cause instanceof Error ? cause.message : "设置封面失败");
+  } finally {
+    savingMeta.value = false;
+  }
+};
+
+const editTitle = async () => {
+  if (!detail.value) return;
+  const next = window.prompt("请输入新的作品标题（建议：风格 · 服装/主体）：", detail.value.title || "");
+  if (next === null || !next.trim() || next.trim() === detail.value.title) return;
+  savingMeta.value = true;
+  try {
+    const updated = await controlApi.updateCreativeResource(detail.value.resourceId, { title: next.trim() });
+    if (updated?.resourceId) {
+      detail.value = updated;
+      const idx = items.value.findIndex((x) => x.resourceId === updated.resourceId);
+      if (idx >= 0) items.value[idx] = { ...items.value[idx], title: updated.title };
+    }
+    emit("toast", "标题已更新");
+  } catch (cause) {
+    emit("toast", cause instanceof Error ? cause.message : "更新标题失败");
+  } finally {
+    savingMeta.value = false;
+  }
+};
+
+const startEditPrompt = () => {
+  if (!detail.value) return;
+  promptDraft.value = (detail.value.prompt || "").trim();
+  editingPrompt.value = true;
+};
+
+const savePrompt = async () => {
+  if (!detail.value || !promptDraft.value.trim()) return;
+  savingMeta.value = true;
+  try {
+    const updated = await controlApi.updateCreativeResource(detail.value.resourceId, { prompt: promptDraft.value.trim() });
+    if (updated?.resourceId) {
+      detail.value = updated;
+      const idx = items.value.findIndex((x) => x.resourceId === updated.resourceId);
+      if (idx >= 0) items.value[idx] = { ...items.value[idx], prompt: updated.prompt };
+    }
+    editingPrompt.value = false;
+    emit("toast", "提示词已更新");
+  } catch (cause) {
+    emit("toast", cause instanceof Error ? cause.message : "更新提示词失败");
+  } finally {
+    savingMeta.value = false;
   }
 };
 
@@ -287,6 +360,7 @@ onBeforeUnmount(() => {
                   {{ detail.mediaType === "video" ? "视频参考" : (hasMulti ? `多图 · ${detailItems.length} 张` : "单图") }}
                 </span>
                 <h2>{{ detail.title }}</h2>
+                <button class="g-btn small" type="button" :disabled="savingMeta" @click="editTitle">改标题</button>
               </div>
               <span class="stage-submeta">
                 <template v-if="hasMulti">
@@ -354,9 +428,15 @@ onBeforeUnmount(() => {
             <div class="info-card">
               <div class="info-head">
                 <h3>{{ curItem.editPrompt ? "基准提示词" : "提示词" }}</h3>
-                <button class="g-btn primary small" type="button" @click="copyText((detail.prompt || '').trim(), '提示词')">一键复制</button>
+                <div style="display:flex;gap:6px;">
+                  <button v-if="!editingPrompt" class="g-btn small" type="button" @click="startEditPrompt">编辑</button>
+                  <button v-if="editingPrompt" class="g-btn primary small" type="button" :disabled="savingMeta" @click="savePrompt">保存</button>
+                  <button v-if="editingPrompt" class="g-btn small" type="button" @click="editingPrompt = false">取消</button>
+                  <button v-if="!editingPrompt" class="g-btn primary small" type="button" @click="copyText((detail.prompt || '').trim(), '提示词')">一键复制</button>
+                </div>
               </div>
-              <pre class="prompt-box" :class="{ compact: Boolean(curItem.editPrompt) }">{{ (detail.prompt || "").trim() }}</pre>
+              <textarea v-if="editingPrompt" v-model="promptDraft" class="prompt-box" style="width:100%;min-height:150px;resize:vertical;" />
+              <pre v-else class="prompt-box" :class="{ compact: Boolean(curItem.editPrompt) }">{{ (detail.prompt || "").trim() }}</pre>
               <div v-if="curItem.note" class="item-note">点评：{{ curItem.note }}</div>
             </div>
 
@@ -402,6 +482,16 @@ onBeforeUnmount(() => {
                   下载原视频
                 </a>
                 <a v-else class="g-btn" :href="curItem.imageUrl" :download="`${detail.resourceId}.png`">下载原图</a>
+                <button
+                  v-if="hasMulti"
+                  class="g-btn"
+                  :class="{ primary: !isCurCover }"
+                  type="button"
+                  :disabled="savingMeta || isCurCover"
+                  @click="setCurrentAsCover"
+                >
+                  {{ isCurCover ? "当前封面" : "设为封面" }}
+                </button>
                 <button
                   v-if="hasMulti"
                   class="g-btn danger"

@@ -14,7 +14,14 @@ const error = ref("");
 const search = ref("");
 const subjectFilter = ref("all");
 const layoutFilter = ref("all");
+const verifyFilter = ref("all");
 const withdrawing = ref(false);
+
+const originLabels = {
+  station_generated: "VF Station 实跑",
+  author_original: "原作者原素材",
+  none: "纯提示词",
+};
 
 const subjectLabels = {
   beauty: "美女",
@@ -44,9 +51,12 @@ const filtered = computed(() => {
   return items.value.filter((item) => {
     const subj = item.subjectCategory || "beauty";
     const isMulti = Number(item.itemCount || 1) > 1;
+    const isUnverified = item.verificationStatus === "unverified";
     if (subjectFilter.value !== "all" && subj !== subjectFilter.value) return false;
     if (layoutFilter.value === "single" && isMulti) return false;
     if (layoutFilter.value === "multi" && !isMulti) return false;
+    if (verifyFilter.value === "verified" && isUnverified) return false;
+    if (verifyFilter.value === "unverified" && !isUnverified) return false;
     if (
       q &&
       ![item.title, item.prompt, item.sourceAuthor, item.modelName, item.resourceId, subjectLabels[subj]].some((v) =>
@@ -262,7 +272,12 @@ onBeforeUnmount(() => {
             <div class="stage-toolbar">
               <div class="stage-title-wrap">
                 <span class="tag-chip green">{{ subjectLabels[detail.subjectCategory] || "美女" }}</span>
-                <span class="tag-chip" :class="hasMulti ? 'blue' : ''">{{ hasMulti ? `多图 · ${detailItems.length} 张` : "单图" }}</span>
+                <span class="tag-chip" :class="detail.verificationStatus === 'unverified' ? 'amber' : 'green'">
+                  {{ detail.verificationStatus === "unverified" ? "未验证" : "已验证" }}
+                </span>
+                <span class="tag-chip" :class="hasMulti ? 'blue' : ''">
+                  {{ detail.mediaType === "video" ? "视频参考" : (hasMulti ? `多图 · ${detailItems.length} 张` : "单图") }}
+                </span>
                 <h2>{{ detail.title }}</h2>
               </div>
               <span class="stage-submeta">
@@ -328,10 +343,18 @@ onBeforeUnmount(() => {
               <div v-if="curItem.note" class="item-note">点评：{{ curItem.note }}</div>
             </div>
 
+            <div v-if="detail.analysisSummary" class="info-card">
+              <div class="info-head">
+                <h3>{{ detail.mediaType === "video" ? "视频镜头与运镜拆解" : "画面与风格拆解" }}</h3>
+                <button class="g-btn small" type="button" @click="copyText(detail.analysisSummary, '拆解分析')">复制拆解</button>
+              </div>
+              <pre class="prompt-box compact">{{ detail.analysisSummary }}</pre>
+            </div>
+
             <div class="info-card">
               <div class="info-head">
                 <h3>参数</h3>
-                <span class="tag-chip">{{ detail.promptOrigin === "adapted" ? "二次改编" : "原帖提取" }}</span>
+                <span class="tag-chip">{{ originLabels[detail.mediaOrigin] || (detail.promptOrigin === "adapted" ? "二次改编" : "原帖提取") }}</span>
               </div>
               <div class="param-grid">
                 <div class="param-cell"><small>模型</small><strong>{{ curItem.modelName || detail.modelName || "—" }}</strong></div>
@@ -349,6 +372,7 @@ onBeforeUnmount(() => {
                   <span>原帖</span>
                   <a :href="detail.sourceUrl" target="_blank" rel="noreferrer">{{ detail.sourceUrl }}</a>
                 </div>
+                <div v-if="detail.drivePath" class="source-row"><span>归档</span><strong>{{ detail.drivePath }}</strong></div>
                 <div class="source-row"><span>时间</span><strong>{{ formatDate(detail.createdAt) }}</strong></div>
               </div>
               <div class="action-row">
@@ -384,6 +408,10 @@ onBeforeUnmount(() => {
             <button type="button" class="pill" :class="{ active: layoutFilter === 'all' }" @click="layoutFilter = 'all'">全部形态</button>
             <button type="button" class="pill" :class="{ active: layoutFilter === 'single' }" @click="layoutFilter = 'single'">单图</button>
             <button type="button" class="pill" :class="{ active: layoutFilter === 'multi' }" @click="layoutFilter = 'multi'">多图</button>
+            <span class="filter-sep" />
+            <button type="button" class="pill" :class="{ active: verifyFilter === 'all' }" @click="verifyFilter = 'all'">全部状态</button>
+            <button type="button" class="pill" :class="{ active: verifyFilter === 'verified' }" @click="verifyFilter = 'verified'">已验证</button>
+            <button type="button" class="pill" :class="{ active: verifyFilter === 'unverified' }" @click="verifyFilter = 'unverified'">未验证</button>
           </div>
         </div>
 
@@ -402,6 +430,7 @@ onBeforeUnmount(() => {
               <img :src="item.imageUrl || controlApi.creativeResourceImageUrl(item.resourceId)" :alt="item.title" loading="lazy" />
               <div class="m-top-badges">
                 <span class="kind-badge badge-subj">{{ subjectLabels[item.subjectCategory] || "美女" }}</span>
+                <span v-if="item.verificationStatus === 'unverified'" class="kind-badge badge-unverified">未验证</span>
                 <span v-if="cardBadge(item)" class="kind-badge" :class="cardBadge(item).cls">{{ cardBadge(item).text }}</span>
               </div>
               <div class="m-bottom-overlay">
@@ -595,8 +624,10 @@ onBeforeUnmount(() => {
 
 .tag-chip { font-size: 11px; font-weight: 650; padding: 2px 9px; border-radius: 999px; background: var(--panel-raised); color: var(--muted); }
 .tag-chip.green { background: rgba(8, 126, 96, .12); color: var(--green); }
+.tag-chip.amber { background: rgba(217, 119, 6, .14); color: #b45309; }
 .tag-chip.blue { background: rgba(37, 99, 235, .12); color: var(--blue, #2563eb); }
 .tag-chip.violet { background: rgba(124, 58, 237, .12); color: var(--violet, #7c3aed); }
+.badge-unverified { background: rgba(217, 119, 6, .88) !important; color: #fff !important; }
 
 .prompt-box {
   margin: 0; background: var(--panel-raised); border: 1px solid var(--line); border-radius: 8px;

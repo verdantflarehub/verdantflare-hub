@@ -43,6 +43,8 @@ export const controlApi = {
   getApp: (id) => request(`/market/apps/${encodeURIComponent(id)}`),
   listSkills: () => request("/market/skills"),
   getSkill: (id) => request(`/market/skills/${encodeURIComponent(id)}`),
+  getSkillRelease: () => request("/market/skill-release"),
+  skillReleaseFileUrl: (releaseId, name) => `${controlBase}/market/skill-releases/${encodeURIComponent(releaseId)}/files/${encodeURIComponent(name)}`,
   listCreativeResources: ({ mediaType = "", subjectCategory = "" } = {}) => {
     const params = new URLSearchParams();
     if (mediaType && mediaType !== "all") params.set("media_type", mediaType);
@@ -67,6 +69,14 @@ export const controlApi = {
     body: JSON.stringify(payload),
   }),
   getSkillAudit: (id) => request(`/ops/v2/skills/${encodeURIComponent(id)}/audit`),
+  listSkillReleases: () => request("/ops/v2/skill-releases"),
+  uploadSkillRelease: (file) => {
+    const body = new FormData();
+    body.append("archive", file, file.name);
+    return request("/ops/v2/skill-releases", { method: "POST", body });
+  },
+  publishSkillRelease: (id) => request(`/ops/v2/skill-releases/${encodeURIComponent(id)}/publish`, { method: "POST" }),
+  withdrawSkillRelease: (id) => request(`/ops/v2/skill-releases/${encodeURIComponent(id)}/withdraw`, { method: "POST" }),
   listExperienceSessions: () => request("/experience/sessions"),
   createExperienceSession: (payload) => request("/experience/sessions", { method: "POST", body: JSON.stringify(payload) }),
   closeExperienceSession: (id) => request(`/experience/sessions/${encodeURIComponent(id)}`, { method: "DELETE" }),

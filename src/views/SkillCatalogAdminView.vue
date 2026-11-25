@@ -60,20 +60,59 @@ const save = async () => {
     entries.value = entries.value.map((entry) => entry.entryId === id ? result : entry)
       .sort((a, b) => a.sortOrder - b.sortOrder || a.entryId.localeCompare(b.entryId));
     await select(result);
-    emit("toast", "技能目录资料已保存；无制品时仍不可下载");
+    emit("toast", "技能目录资料已保存");
   } catch (cause) {
     conflict.value = cause?.status === 409;
     error.value = conflict.value ? "资料已被其他管理员修改，请重新加载后再编辑。" : (cause instanceof Error ? cause.message : "保存失败");
   } finally { saving.value = false; }
 };
+const releases = ref([]);
+const releaseBusy = ref(false);
+const releaseError = ref("");
+const releaseStatusLabel = (value) => ({ candidate: "待发布", published: "已发布", withdrawn: "已撤回" })[value] || value;
+const loadReleases = async () => {
+  try { releases.value = (await controlApi.listSkillReleases())?.items || []; }
+  catch (cause) { releaseError.value = cause instanceof Error ? cause.message : "发行列表加载失败"; }
+};
+const runRelease = async (action, message) => {
+  if (releaseBusy.value) return;
+  releaseBusy.value = true;
+  releaseError.value = "";
+  try { await action(); await loadReleases(); emit("toast", message); }
+  catch (cause) { releaseError.value = cause instanceof Error ? cause.message : "操作失败"; }
+  finally { releaseBusy.value = false; }
+};
+const uploadRelease = (event) => {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (file) runRelease(() => controlApi.uploadSkillRelease(file), "发行包已校验并登记，发布后成员即可下载");
+};
+const publishRelease = (release) => {
+  if (window.confirm(`发布 ${release.releaseId}？发布后所有组织成员都能在技能市场下载这一版。`)) runRelease(() => controlApi.publishSkillRelease(release.releaseId), "已发布");
+};
+const withdrawRelease = (release) => {
+  if (window.confirm(`撤回 ${release.releaseId}？撤回后不能再下载，也不能重新发布。`)) runRelease(() => controlApi.withdrawSkillRelease(release.releaseId), "已撤回");
+};
 const visibilityLabel = (value) => ({ draft: "草稿", listed: "已列出", hidden: "隐藏", paused: "暂停" })[value] || value;
-onMounted(load);
+onMounted(() => { load(); loadReleases(); });
 </script>
 
 <template>
   <div class="skill-admin-page">
-    <header class="page-header"><div><h1>技能目录</h1><p>维护展示资料与可见范围；固定发行和下载需另行验收。</p></div></header>
-    <p class="skill-admin-note">运营资料与安装包分开管理。这里不能修改技能 ID、能力组合成员、包字节、摘要或宿主支持结论；“已列出”也不代表可下载。</p>
+    <header class="page-header"><div><h1>技能目录</h1><p>维护展示资料、可见范围和成员可下载的技能发行。</p></div></header>
+    <section class="skill-admin-panel skill-release-admin" aria-label="技能发行">
+      <div class="skill-admin-panel-head">
+        <div><h2>技能发行</h2><p>上传 Luna 交付的 vf-hub-skill-input ZIP；Control 校验 11 个技能包、依赖和同版指南的摘要后登记。</p></div>
+        <label class="button secondary" :class="{ disabled: releaseBusy }">{{ releaseBusy ? "处理中…" : "上传发行包" }}<input type="file" accept=".zip" hidden :disabled="releaseBusy" @change="uploadRelease" /></label>
+      </div>
+      <div v-if="releaseError" class="skill-form-error" role="alert">{{ releaseError }}</div>
+      <div class="skill-table-wrap"><table><thead><tr><th>版本</th><th>来源</th><th>状态</th><th>文件</th><th>操作</th></tr></thead><tbody>
+        <tr v-for="release in releases" :key="release.releaseId"><td><strong>{{ release.releaseId }}</strong><small>{{ new Date(release.createdAt).toLocaleString() }}</small></td><td>{{ release.authentication === "unsigned" ? "工程候选 · 未签名" : release.authentication }}</td><td><span :class="{ positive: release.status === 'published' }">{{ releaseStatusLabel(release.status) }}</span></td><td>{{ release.files.length }} 个</td>
+          <td><button v-if="release.status === 'candidate'" type="button" :disabled="releaseBusy" @click="publishRelease(release)">发布</button><button v-if="release.status === 'published'" type="button" :disabled="releaseBusy" @click="withdrawRelease(release)">撤回</button></td></tr>
+      </tbody></table></div>
+      <p v-if="!releases.length" class="skill-table-empty">还没有登记发行。</p>
+    </section>
+    <p class="skill-admin-note">目录资料与安装包分开管理。成员在技能市场看到的下载内容，始终是最近一次发布且未撤回的版本。</p>
     <div v-if="loading" class="skill-admin-feedback" role="status">正在读取目录…</div>
     <div v-else-if="error && !draft" class="skill-admin-feedback" role="alert"><p>{{ error }}</p><button class="button secondary" type="button" @click="load">重试</button></div>
     <div v-else class="skill-admin-layout">
@@ -91,7 +130,7 @@ onMounted(load);
           <label class="form-field">说明<textarea v-model.trim="draft.description" required maxlength="2000" rows="5" /></label>
           <div class="skill-form-grid"><label class="form-field">分类<input v-model.trim="draft.category" required maxlength="2000" /></label><label class="form-field">排序<input v-model.number="draft.sortOrder" type="number" min="0" max="1000000" required /></label></div>
           <label class="form-field">目录可见状态<select v-model="draft.visibility"><option value="draft">草稿</option><option value="listed">已列出</option><option value="hidden">隐藏</option><option value="paused">暂停</option></select></label>
-          <p class="skill-form-hint">当前修订 {{ draft.revision }} · {{ draft.sample ? "演示资料" : "目录资料" }} · 分发状态：尚不可下载</p>
+          <p class="skill-form-hint">当前修订 {{ draft.revision }} · {{ draft.sample ? "演示资料" : "目录资料" }}</p>
           <div v-if="error" class="skill-form-error" role="alert"><span>{{ error }}</span><button v-if="conflict" type="button" @click="load">重新加载</button></div>
           <button class="button primary" type="submit" :disabled="saving">{{ saving ? "保存中…" : "保存资料" }}</button>
         </form>
@@ -104,6 +143,9 @@ onMounted(load);
 
 <style scoped>
 .skill-admin-page { min-width: 0; }
+.skill-release-admin { margin-bottom: 16px; }
+.skill-release-admin .skill-form-error { margin: 12px 18px 0; }
+.skill-release-admin label.disabled { opacity: .6; pointer-events: none; }
 .skill-admin-note { margin: 0 0 18px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted-strong); font-size: 12px; line-height: 1.7; }
 .skill-admin-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(330px, .8fr); gap: 16px; align-items: start; }
 .skill-admin-panel { min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface, #111b15); overflow: hidden; }

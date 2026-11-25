@@ -1,0 +1,135 @@
+# Manually build the current dev branch and deploy it to Center production.
+# Refuses unless production still runs the expected image; rolls back if the
+# new ReplicaSet does not become ready. Does not modify the ghcr-pull secret.
+name: deploy-prod-from-dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: new image tag, e.g. hub-v1.7.25
+        required: true
+        type: string
+      expected_current:
+        description: full image currently in production, e.g. ghcr.io/verdantflarehub/verdantflare-hub:hub-v1.7.24
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: verdantflare-hub-release
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/verdantflarehub/verdantflare-hub
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the dev branch and a fresh tag name
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          test "$GITHUB_REF" = refs/heads/dev
+          printf '%s' "$VERSION" | grep -Eqx '[a-z-]+v[0-9]+\.[0-9]+\.[0-9]+(-[a-z0-9.]+)?'
+
+      - name: Checkout dev
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install, test and build for production
+        env:
+          VITE_USE_MOCK: "false"
+          VITE_CONTROL_API_BASE: /api/control
+          VITE_LOGIN_URL: https://login.verdantflare.ai/sign-in
+          VITE_WWW_URL: https://www.verdantflare.ai
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Refuse an existing image tag
+        run: '! docker buildx imagetools inspect "${{ env.IMAGE_NAME }}:${{ inputs.version }}" >/dev/null 2>&1'
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: ${{ env.IMAGE_NAME }}:${{ inputs.version }}
+          build-args: |
+            AUTHOR=${{ github.repository_owner }}
+            VERSION=${{ inputs.version }}
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure Kubernetes access
+        env:
+          KUBERNETES_SERVER: ${{ secrets.KUBERNETES_SERVER }}
+          KUBERNETES_TOKEN: ${{ secrets.KUBERNETES_TOKEN }}
+          KUBERNETES_CA: ${{ secrets.KUBERNETES_CA }}
+        run: |
+          set -eu
+          test -n "$KUBERNETES_SERVER"
+          test -n "$KUBERNETES_TOKEN"
+          if [ "$KUBERNETES_SERVER" != 'https://kubernetes.verdantflare.ai' ]; then
+            echo 'Refusing: Kubernetes API is not the current Center production endpoint' >&2
+            exit 1
+          fi
+          if [ -n "$KUBERNETES_CA" ]; then
+            ca_file="$RUNNER_TEMP/kubernetes-ca.crt"
+            printf '%s\n' "$KUBERNETES_CA" > "$ca_file"
+            kubectl config set-cluster verdantflare --server="$KUBERNETES_SERVER" --certificate-authority="$ca_file" --embed-certs=true
+          else
+            kubectl config set-cluster verdantflare --server="$KUBERNETES_SERVER"
+          fi
+          kubectl config set-credentials github-actions --token="$KUBERNETES_TOKEN"
+          kubectl config set-context verdantflare --cluster=verdantflare --user=github-actions --namespace=verdantflare
+
+      - name: Refuse unless production runs the expected image
+        env:
+          EXPECTED: ${{ inputs.expected_current }}
+        run: |
+          set -eu
+          current="$(kubectl --context verdantflare -n verdantflare get deployment verdantflare-hub -o jsonpath='{.spec.template.spec.containers[?(@.name=="verdantflare-hub")].image}')"
+          echo "current=$current"
+          test "$current" = "$EXPECTED"
+          kubectl --context verdantflare -n verdantflare rollout status deployment/verdantflare-hub --timeout=60s
+
+      - name: Switch image, roll back if it does not become ready
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -eu
+          kubectl --context verdantflare -n verdantflare set image deployment/verdantflare-hub verdantflare-hub="$IMAGE_NAME:$VERSION"
+          if ! kubectl --context verdantflare -n verdantflare rollout status deployment/verdantflare-hub --timeout=5m; then
+            echo 'New version did not become ready; rolling back' >&2
+            kubectl --context verdantflare -n verdantflare rollout undo deployment/verdantflare-hub
+            kubectl --context verdantflare -n verdantflare rollout status deployment/verdantflare-hub --timeout=5m
+            exit 1
+          fi
+          kubectl --context verdantflare -n verdantflare get deployment verdantflare-hub -o jsonpath='{.spec.template.spec.containers[?(@.name=="verdantflare-hub")].image}{"\n"}'

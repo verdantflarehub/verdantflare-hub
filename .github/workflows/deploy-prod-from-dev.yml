@@ -58,6 +58,9 @@ jobs:
           npm test
           npm run build
 
+      - name: Test the gateway config with the image's nginx version
+        run: NGINX_IMAGE=docker.io/library/nginx:1.27-alpine python3 -I docker/nginx_test.py
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

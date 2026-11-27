@@ -140,6 +140,12 @@ def main() -> int:
         status, _, echo = call("POST", "/mcp", b"{}", {**session, **spoof, "Authorization": "Bearer t"})
         check("/mcp drops Cookie and subject, keeps Bearer", status == 200 and echo["path"] == "/api/control/mcp"
               and echo["cookie"] == "" and echo["subject"] == "" and echo["authorization"] == "Bearer t")
+        status, _, echo = call("POST", "/skill-publishing/mcp", b"{}", {**session, **spoof, "Authorization": "Bearer k"})
+        check("/skill-publishing/mcp drops Cookie and subject, keeps Bearer", status == 200
+              and echo["path"] == "/api/control/skill-publishing/mcp" and echo["cookie"] == "" and echo["subject"] == ""
+              and echo["authorization"] == "Bearer k")
+        status, _, _ = call("POST", "/skill-publishing/mcp", b"x" * (65 * 1024), {"Authorization": "Bearer k"})
+        check("/skill-publishing/mcp over 64k is 413", status == 413)
         status, _, echo = call("PUT", "/api/control/mcp/credentials/h1", b"k" * 100, {**session, **spoof, "Authorization": "Bearer t"})
         check("credential upload bypasses session and drops Cookie", status == 200
               and echo["path"] == "/api/control/mcp/credentials/h1" and echo["cookie"] == "" and echo["subject"] == "")

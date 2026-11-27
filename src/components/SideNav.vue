@@ -45,7 +45,7 @@ const groups = computed(() => [
 const opsItems = computed(() => [
   props.canManageModels && { label: "模型上架", icon: "models", href: "/ops/models" },
   props.canManageApps && { label: "应用发布", icon: "release", href: "/ops/apps" },
-  props.canManageSkills && { label: "技能目录", icon: "playground", href: "/ops/skills" },
+  props.canManageSkills && { label: "技能发布", icon: "playground", href: "/ops/skills" },
   props.canManageOrganizations && { label: "客户组织", icon: "clients", href: "/ops/organizations" },
   props.canManageOrganizations && props.activeOrganization.organizationId === "org_verdantflare" && { label: "交流问卷", icon: "usage", href: "/ops/surveys" },
 ].filter(Boolean));

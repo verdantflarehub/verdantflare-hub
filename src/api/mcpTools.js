@@ -1,4 +1,4 @@
-export async function listMcpToolNames(endpoint, token, fetchImpl = fetch) {
+export async function listMcpToolNames(endpoint, token, fetchImpl = fetch, prefix = "model_publish.") {
   if (!token) throw new Error("令牌已关闭，请重新签发后验证");
   let response;
   try {
@@ -26,5 +26,5 @@ export async function listMcpToolNames(endpoint, token, fetchImpl = fetch) {
   }
   return envelope.result.tools
     .map((tool) => tool?.name)
-    .filter((name) => typeof name === "string" && name.startsWith("model_publish."));
+    .filter((name) => typeof name === "string" && name.startsWith(prefix));
 }

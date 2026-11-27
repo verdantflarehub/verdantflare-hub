@@ -62,6 +62,7 @@ export const controlApi = {
   withdrawCreativeResource: (id) => request(`/resources/${encodeURIComponent(id)}/withdraw`, { method: "POST" }),
   creativeResourceImageUrl: (id) => `${controlBase}/resources/${encodeURIComponent(id)}/image`,
   listManagedSkills: () => request("/ops/v2/skills"),
+  createManagedSkill: (payload) => request("/ops/v2/skills", { method: "POST", body: JSON.stringify(payload) }),
   getManagedSkill: (id) => request(`/ops/v2/skills/${encodeURIComponent(id)}`),
   patchManagedSkill: (id, payload, revision) => request(`/ops/v2/skills/${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -69,14 +70,15 @@ export const controlApi = {
     body: JSON.stringify(payload),
   }),
   getSkillAudit: (id) => request(`/ops/v2/skills/${encodeURIComponent(id)}/audit`),
+  // Releases are registered only by the skill publishing MCP from the skills repository.
   listSkillReleases: () => request("/ops/v2/skill-releases"),
-  uploadSkillRelease: (file) => {
-    const body = new FormData();
-    body.append("archive", file, file.name);
-    return request("/ops/v2/skill-releases", { method: "POST", body });
-  },
-  publishSkillRelease: (id) => request(`/ops/v2/skill-releases/${encodeURIComponent(id)}/publish`, { method: "POST" }),
-  withdrawSkillRelease: (id) => request(`/ops/v2/skill-releases/${encodeURIComponent(id)}/withdraw`, { method: "POST" }),
+  getManagedSkillRelease: (id) => request(`/ops/v2/skill-releases/${encodeURIComponent(id)}`),
+  publishSkillRelease: (id, expectedArchiveSha256) => request(`/ops/v2/skill-releases/${encodeURIComponent(id)}/publish`, {
+    method: "POST", body: JSON.stringify({ expectedArchiveSha256 }),
+  }),
+  withdrawSkillRelease: (id, expectedArchiveSha256, reason = "") => request(`/ops/v2/skill-releases/${encodeURIComponent(id)}/withdraw`, {
+    method: "POST", body: JSON.stringify({ expectedArchiveSha256, reason }),
+  }),
   listExperienceSessions: () => request("/experience/sessions"),
   createExperienceSession: (payload) => request("/experience/sessions", { method: "POST", body: JSON.stringify(payload) }),
   closeExperienceSession: (id) => request(`/experience/sessions/${encodeURIComponent(id)}`, { method: "DELETE" }),
